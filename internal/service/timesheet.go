@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -35,9 +36,12 @@ func (s *TimesheetService) StartWork(ctx context.Context, clientName string, des
 		}
 	}
 
-	client, err := s.ensureClient(ctx, clientName)
+	client, err := s.db.GetClientByName(ctx, clientName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to ensure client exists: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("client '%s' does not exist", clientName)
+		}
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	session, err := s.db.CreateWorkSession(ctx, client.ID, description, client.HourlyRate)
@@ -109,15 +113,18 @@ func (s *TimesheetService) ListClients(ctx context.Context) ([]*models.Client, e
 	return s.db.ListClients(ctx)
 }
 
-func (s *TimesheetService) ensureClient(ctx context.Context, name string) (*models.Client, error) {
-	client, err := s.db.GetClientByName(ctx, name)
-	if err == sql.ErrNoRows {
-		return s.db.CreateClient(ctx, name, 0.0)
+func (s *TimesheetService) UpdateClient(ctx context.Context, client string, rate float64) (*models.Client, error) {
+	if rate == 0.0 {
+		return nil, nil
 	}
+	c, err := s.db.GetClientByName(ctx, client)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("client '%s' does not exist", client)
+		}
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
-	return client, nil
+	return s.db.UpdateClientRate(ctx, c.ID, rate)
 }
 
 func (s *TimesheetService) CalculateDuration(session *models.WorkSession) time.Duration {
