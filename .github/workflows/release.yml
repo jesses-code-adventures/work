@@ -22,30 +22,22 @@ jobs:
     - name: Install dependencies
       run: go mod download
     
-    - name: Build binaries
+    - name: Build binary
       run: |
-        # Build for multiple platforms
+        # Build for Apple Silicon only
         mkdir -p dist
         
-        # Linux AMD64
-        GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/work-linux-amd64 ./cmd/work
-        
-        # Linux ARM64  
-        GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/work-linux-arm64 ./cmd/work
-        
-        # macOS AMD64
-        GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o dist/work-darwin-amd64 ./cmd/work
-        
-        # macOS ARM64 (Apple Silicon)
-        GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o dist/work-darwin-arm64 ./cmd/work
-        
-        # Windows AMD64
-        GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/work-windows-amd64.exe ./cmd/work
+        # macOS ARM64 (Apple Silicon) - optimized for size
+        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+          -ldflags "-s -w -X main.version=$(git rev-parse --short HEAD)" \
+          -tags netgo -a -installsuffix cgo \
+          -o dist/work \
+          ./cmd/work
 
     - name: Create checksums
       run: |
         cd dist
-        sha256sum * > checksums.txt
+        shasum -a 256 * > checksums.txt
     
     - name: Generate version
       id: version
@@ -71,28 +63,20 @@ jobs:
         body: |
           Automated build from latest main branch.
           
+          **Platform Support:** Apple Silicon (macOS ARM64) only
+          
           **Installation:**
           ```bash
-          # Linux/WSL (AMD64)
-          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-linux-amd64 -o work && chmod +x work && sudo mv work /usr/local/bin/
-          
-          # Linux/WSL (ARM64)  
-          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-linux-arm64 -o work && chmod +x work && sudo mv work /usr/local/bin/
-          
-          # macOS (Intel)
-          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-darwin-amd64 -o work && chmod +x work && sudo mv work /usr/local/bin/
-          
           # macOS (Apple Silicon)
-          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-darwin-arm64 -o work && chmod +x work && sudo mv work /usr/local/bin/
+          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work -o work && chmod +x work && sudo mv work /usr/local/bin/
+          
+          # Or use the install script
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
           ```
           
           Commit: ${{ github.sha }}
         files: |
-          dist/work-linux-amd64
-          dist/work-linux-arm64
-          dist/work-darwin-amd64
-          dist/work-darwin-arm64
-          dist/work-windows-amd64.exe
+          dist/work
           dist/checksums.txt
         prerelease: false
       env:

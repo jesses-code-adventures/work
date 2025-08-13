@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Work CLI Installation Script
-# This script detects the platform and installs the appropriate binary
+# Apple Silicon (macOS ARM64) only
 
 set -e
 
@@ -9,32 +9,18 @@ set -e
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 
-# Map architecture names
-case $ARCH in
-    x86_64|amd64)
-        ARCH="amd64"
-        ;;
-    arm64|aarch64)
-        ARCH="arm64"
-        ;;
-    *)
-        echo "Unsupported architecture: $ARCH"
-        exit 1
-        ;;
-esac
-
-# Set binary name based on OS
-BINARY_NAME="work-${OS}-${ARCH}"
-if [ "$OS" = "windows" ]; then
-    BINARY_NAME="${BINARY_NAME}.exe"
+# Check for supported platform
+if [ "$OS" != "darwin" ] || [ "$ARCH" != "arm64" ]; then
+    echo "Error: Work CLI only supports Apple Silicon (macOS ARM64)"
+    echo "Current platform: ${OS}-${ARCH}"
+    exit 1
 fi
 
-# GitHub repository (update this to match your actual repo)
+# GitHub repository
 REPO="jesses-code-adventures/work"
-DOWNLOAD_URL="https://github.com/${REPO}/releases/download/latest/${BINARY_NAME}"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/latest/work"
 
-echo "Installing Work CLI..."
-echo "Platform: ${OS}-${ARCH}"
+echo "Installing Work CLI for Apple Silicon..."
 echo "Downloading from: ${DOWNLOAD_URL}"
 
 # Download binary
