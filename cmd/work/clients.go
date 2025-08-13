@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jessewilliams/work/internal/database"
-	"github.com/jessewilliams/work/internal/service"
+	"github.com/jesses-code-adventures/work/internal/database"
+	"github.com/jesses-code-adventures/work/internal/service"
 	"github.com/spf13/cobra"
 )
 

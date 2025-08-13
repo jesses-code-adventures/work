@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jessewilliams/work/internal/service"
+	"github.com/jesses-code-adventures/work/internal/service"
 )
 
 func newClearCmd(timesheetService *service.TimesheetService) *cobra.Command {

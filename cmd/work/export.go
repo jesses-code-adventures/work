@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jessewilliams/work/internal/models"
-	"github.com/jessewilliams/work/internal/service"
+	"github.com/jesses-code-adventures/work/internal/models"
+	"github.com/jesses-code-adventures/work/internal/service"
 )
 
 func newExportCmd(timesheetService *service.TimesheetService) *cobra.Command {

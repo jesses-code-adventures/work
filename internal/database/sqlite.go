@@ -9,9 +9,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
 
-	"github.com/jessewilliams/work/internal/config"
-	"github.com/jessewilliams/work/internal/db"
-	"github.com/jessewilliams/work/internal/models"
+	"github.com/jesses-code-adventures/work/internal/config"
+	"github.com/jesses-code-adventures/work/internal/db"
+	"github.com/jesses-code-adventures/work/internal/models"
 )
 
 type SQLiteDB struct {

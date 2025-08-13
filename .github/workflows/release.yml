@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.25'
+    
+    - name: Install dependencies
+      run: go mod download
+    
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        mkdir -p dist
+        
+        # Linux AMD64
+        GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/work-linux-amd64 ./cmd/work
+        
+        # Linux ARM64  
+        GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/work-linux-arm64 ./cmd/work
+        
+        # macOS AMD64
+        GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o dist/work-darwin-amd64 ./cmd/work
+        
+        # macOS ARM64 (Apple Silicon)
+        GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o dist/work-darwin-arm64 ./cmd/work
+        
+        # Windows AMD64
+        GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/work-windows-amd64.exe ./cmd/work
+
+    - name: Create checksums
+      run: |
+        cd dist
+        sha256sum * > checksums.txt
+    
+    - name: Generate version
+      id: version
+      run: |
+        # Use commit hash as version for now
+        VERSION=$(git rev-parse --short HEAD)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+    
+    - name: Delete existing release
+      run: |
+        # Delete the 'latest' release if it exists
+        gh release delete latest --yes || true
+        git push --delete origin latest || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: latest
+        name: Latest Build (${{ env.VERSION }})
+        body: |
+          Automated build from latest main branch.
+          
+          **Installation:**
+          ```bash
+          # Linux/WSL (AMD64)
+          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-linux-amd64 -o work && chmod +x work && sudo mv work /usr/local/bin/
+          
+          # Linux/WSL (ARM64)  
+          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-linux-arm64 -o work && chmod +x work && sudo mv work /usr/local/bin/
+          
+          # macOS (Intel)
+          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-darwin-amd64 -o work && chmod +x work && sudo mv work /usr/local/bin/
+          
+          # macOS (Apple Silicon)
+          curl -L https://github.com/${{ github.repository }}/releases/download/latest/work-darwin-arm64 -o work && chmod +x work && sudo mv work /usr/local/bin/
+          ```
+          
+          Commit: ${{ github.sha }}
+        files: |
+          dist/work-linux-amd64
+          dist/work-linux-arm64
+          dist/work-darwin-amd64
+          dist/work-darwin-arm64
+          dist/work-windows-amd64.exe
+          dist/checksums.txt
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jessewilliams/work/internal/database"
-	"github.com/jessewilliams/work/internal/models"
+	"github.com/jesses-code-adventures/work/internal/database"
+	"github.com/jesses-code-adventures/work/internal/models"
 )
 
 type TimesheetService struct {

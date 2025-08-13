@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jessewilliams/work/internal/config"
-	"github.com/jessewilliams/work/internal/database"
-	"github.com/jessewilliams/work/internal/service"
+	"github.com/jesses-code-adventures/work/internal/config"
+	"github.com/jesses-code-adventures/work/internal/database"
+	"github.com/jesses-code-adventures/work/internal/service"
 )
 
 var DBConn string

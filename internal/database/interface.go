@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 
-	"github.com/jessewilliams/work/internal/models"
+	"github.com/jesses-code-adventures/work/internal/models"
 )
 
 type ClientBillingDetails struct {

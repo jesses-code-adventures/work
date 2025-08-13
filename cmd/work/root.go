@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/jessewilliams/work/internal/service"
+	"github.com/jesses-code-adventures/work/internal/service"
 )
 
 func newRootCmd(timesheetService *service.TimesheetService) *cobra.Command {
