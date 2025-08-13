@@ -99,11 +99,17 @@ func (s *SQLiteDB) ListClients(ctx context.Context) ([]*models.Client, error) {
 
 	result := make([]*models.Client, len(clients))
 	for i, client := range clients {
+		var rate float64
+		if client.HourlyRate.Valid {
+			rate = client.HourlyRate.Float64
+		}
+
 		result[i] = &models.Client{
-			ID:        client.ID,
-			Name:      client.Name,
-			CreatedAt: client.CreatedAt,
-			UpdatedAt: client.UpdatedAt,
+			ID:         client.ID,
+			Name:       client.Name,
+			HourlyRate: rate,
+			CreatedAt:  client.CreatedAt,
+			UpdatedAt:  client.UpdatedAt,
 		}
 	}
 
