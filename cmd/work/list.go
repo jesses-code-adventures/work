@@ -69,7 +69,6 @@ func newListCmd(timesheetService *service.TimesheetService) *cobra.Command {
 				if session.Description != nil && *session.Description != "" {
 					fmt.Printf("- %s\n", *session.Description)
 				}
-				fmt.Println()
 			}
 
 			return nil

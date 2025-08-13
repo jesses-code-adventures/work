@@ -23,6 +23,7 @@ Supports hourly rate tracking and automatic billable amount calculations for fre
 		newStatusCmd(timesheetService),
 		newClearCmd(timesheetService),
 		newExportCmd(timesheetService),
+		newInvoicesCmd(timesheetService),
 	)
 
 	return rootCmd

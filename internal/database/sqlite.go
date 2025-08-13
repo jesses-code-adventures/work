@@ -190,12 +190,18 @@ func (s *SQLiteDB) GetActiveSession(ctx context.Context) (*models.WorkSession, e
 		return nil, fmt.Errorf("failed to get active session: %w", err)
 	}
 
+	var sessionRate *float64
+	if session.HourlyRate.Valid {
+		sessionRate = &session.HourlyRate.Float64
+	}
+
 	return &models.WorkSession{
 		ID:          session.ID,
 		ClientID:    session.ClientID,
 		StartTime:   session.StartTime,
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
+		HourlyRate:  sessionRate,
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 		ClientName:  session.ClientName,
@@ -211,12 +217,18 @@ func (s *SQLiteDB) StopWorkSession(ctx context.Context, sessionID string) (*mode
 		return nil, fmt.Errorf("failed to stop work session: %w", err)
 	}
 
+	var sessionRate *float64
+	if session.HourlyRate.Valid {
+		sessionRate = &session.HourlyRate.Float64
+	}
+
 	return &models.WorkSession{
 		ID:          session.ID,
 		ClientID:    session.ClientID,
 		StartTime:   session.StartTime,
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
+		HourlyRate:  sessionRate,
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
@@ -230,12 +242,18 @@ func (s *SQLiteDB) ListRecentSessions(ctx context.Context, limit int32) ([]*mode
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
+		var sessionRate *float64
+		if session.HourlyRate.Valid {
+			sessionRate = &session.HourlyRate.Float64
+		}
+
 		result[i] = &models.WorkSession{
 			ID:          session.ID,
 			ClientID:    session.ClientID,
 			StartTime:   session.StartTime,
 			EndTime:     nullTimeToPtr(session.EndTime),
 			Description: nullStringToPtr(session.Description),
+			HourlyRate:  sessionRate,
 			CreatedAt:   session.CreatedAt,
 			UpdatedAt:   session.UpdatedAt,
 			ClientName:  session.ClientName,
@@ -265,12 +283,18 @@ func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDa
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
+		var sessionRate *float64
+		if session.HourlyRate.Valid {
+			sessionRate = &session.HourlyRate.Float64
+		}
+
 		result[i] = &models.WorkSession{
 			ID:          session.ID,
 			ClientID:    session.ClientID,
 			StartTime:   session.StartTime,
 			EndTime:     nullTimeToPtr(session.EndTime),
 			Description: nullStringToPtr(session.Description),
+			HourlyRate:  sessionRate,
 			CreatedAt:   session.CreatedAt,
 			UpdatedAt:   session.UpdatedAt,
 			ClientName:  session.ClientName,
