@@ -175,41 +175,44 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 	return items, nil
 }
 
-const updateClientBilling = `-- name: UpdateClientBilling :one
+const updateClient = `-- name: UpdateClient :one
 UPDATE clients 
 SET 
-    company_name = ?1,
-    contact_name = ?2,
-    email = ?3,
-    phone = ?4,
-    address_line1 = ?5,
-    address_line2 = ?6,
-    city = ?7,
-    state = ?8,
-    postal_code = ?9,
-    country = ?10,
-    tax_number = ?11
-WHERE id = ?12
+	hourly_rate = ?1,
+    company_name = ?2,
+    contact_name = ?3,
+    email = ?4,
+    phone = ?5,
+    address_line1 = ?6,
+    address_line2 = ?7,
+    city = ?8,
+    state = ?9,
+    postal_code = ?10,
+    country = ?11,
+    tax_number = ?12
+WHERE id = ?13
 RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number
 `
 
-type UpdateClientBillingParams struct {
-	CompanyName  sql.NullString `db:"company_name" json:"company_name"`
-	ContactName  sql.NullString `db:"contact_name" json:"contact_name"`
-	Email        sql.NullString `db:"email" json:"email"`
-	Phone        sql.NullString `db:"phone" json:"phone"`
-	AddressLine1 sql.NullString `db:"address_line1" json:"address_line1"`
-	AddressLine2 sql.NullString `db:"address_line2" json:"address_line2"`
-	City         sql.NullString `db:"city" json:"city"`
-	State        sql.NullString `db:"state" json:"state"`
-	PostalCode   sql.NullString `db:"postal_code" json:"postal_code"`
-	Country      sql.NullString `db:"country" json:"country"`
-	TaxNumber    sql.NullString `db:"tax_number" json:"tax_number"`
-	ID           string         `db:"id" json:"id"`
+type UpdateClientParams struct {
+	HourlyRate   sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
+	CompanyName  sql.NullString  `db:"company_name" json:"company_name"`
+	ContactName  sql.NullString  `db:"contact_name" json:"contact_name"`
+	Email        sql.NullString  `db:"email" json:"email"`
+	Phone        sql.NullString  `db:"phone" json:"phone"`
+	AddressLine1 sql.NullString  `db:"address_line1" json:"address_line1"`
+	AddressLine2 sql.NullString  `db:"address_line2" json:"address_line2"`
+	City         sql.NullString  `db:"city" json:"city"`
+	State        sql.NullString  `db:"state" json:"state"`
+	PostalCode   sql.NullString  `db:"postal_code" json:"postal_code"`
+	Country      sql.NullString  `db:"country" json:"country"`
+	TaxNumber    sql.NullString  `db:"tax_number" json:"tax_number"`
+	ID           string          `db:"id" json:"id"`
 }
 
-func (q *Queries) UpdateClientBilling(ctx context.Context, arg UpdateClientBillingParams) (Client, error) {
-	row := q.db.QueryRowContext(ctx, updateClientBilling,
+func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error) {
+	row := q.db.QueryRowContext(ctx, updateClient,
+		arg.HourlyRate,
 		arg.CompanyName,
 		arg.ContactName,
 		arg.Email,
@@ -223,42 +226,6 @@ func (q *Queries) UpdateClientBilling(ctx context.Context, arg UpdateClientBilli
 		arg.TaxNumber,
 		arg.ID,
 	)
-	var i Client
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.HourlyRate,
-		&i.CompanyName,
-		&i.ContactName,
-		&i.Email,
-		&i.Phone,
-		&i.AddressLine1,
-		&i.AddressLine2,
-		&i.City,
-		&i.State,
-		&i.PostalCode,
-		&i.Country,
-		&i.TaxNumber,
-	)
-	return i, err
-}
-
-const updateClientRate = `-- name: UpdateClientRate :one
-UPDATE clients 
-SET hourly_rate = ?1
-WHERE id = ?2
-RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number
-`
-
-type UpdateClientRateParams struct {
-	HourlyRate sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	ID         string          `db:"id" json:"id"`
-}
-
-func (q *Queries) UpdateClientRate(ctx context.Context, arg UpdateClientRateParams) (Client, error) {
-	row := q.db.QueryRowContext(ctx, updateClientRate, arg.HourlyRate, arg.ID)
 	var i Client
 	err := row.Scan(
 		&i.ID,

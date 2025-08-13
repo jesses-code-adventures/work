@@ -117,21 +117,7 @@ func (s *TimesheetService) GetClientByName(ctx context.Context, name string) (*m
 	return s.db.GetClientByName(ctx, name)
 }
 
-func (s *TimesheetService) UpdateClient(ctx context.Context, client string, rate float64) (*models.Client, error) {
-	if rate == 0.0 {
-		return nil, nil
-	}
-	c, err := s.db.GetClientByName(ctx, client)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("client '%s' does not exist", client)
-		}
-		return nil, fmt.Errorf("failed to get client: %w", err)
-	}
-	return s.db.UpdateClientRate(ctx, c.ID, rate)
-}
-
-func (s *TimesheetService) UpdateClientBilling(ctx context.Context, clientName string, billing *database.ClientBillingDetails) (*models.Client, error) {
+func (s *TimesheetService) UpdateClient(ctx context.Context, clientName string, updates *database.ClientUpdateDetails) (*models.Client, error) {
 	c, err := s.db.GetClientByName(ctx, clientName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -139,7 +125,52 @@ func (s *TimesheetService) UpdateClientBilling(ctx context.Context, clientName s
 		}
 		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
-	return s.db.UpdateClientBilling(ctx, c.ID, billing)
+	return s.db.UpdateClient(ctx, c.ID, updates)
+}
+
+func (s *TimesheetService) DisplayClient(ctx context.Context, client *models.Client) {
+	fmt.Printf("Client: %s\n", client.Name)
+	if client.HourlyRate != 0.0 {
+		fmt.Printf("Rate: %s\n", s.FormatBillableAmount(client.HourlyRate))
+	}
+	if client.CompanyName != nil {
+		fmt.Printf("Company: %s\n", *client.CompanyName)
+	}
+	if client.ContactName != nil {
+		fmt.Printf("Contact: %s\n", *client.ContactName)
+	}
+	if client.Email != nil {
+		fmt.Printf("Email: %s\n", *client.Email)
+	}
+	if client.Phone != nil {
+		fmt.Printf("Phone: %s\n", *client.Phone)
+	}
+	if client.AddressLine1 != nil {
+		fmt.Printf("Address: %s", *client.AddressLine1)
+		if client.AddressLine2 != nil {
+			fmt.Printf(", %s", *client.AddressLine2)
+		}
+		fmt.Printf("\n")
+	}
+	if client.City != nil || client.State != nil || client.PostalCode != nil {
+		fmt.Printf("Location: ")
+		if client.City != nil {
+			fmt.Printf("%s", *client.City)
+		}
+		if client.State != nil {
+			fmt.Printf(", %s", *client.State)
+		}
+		if client.PostalCode != nil {
+			fmt.Printf(" %s", *client.PostalCode)
+		}
+		fmt.Printf("\n")
+	}
+	if client.Country != nil {
+		fmt.Printf("Country: %s\n", *client.Country)
+	}
+	if client.TaxNumber != nil {
+		fmt.Printf("Tax Number: %s\n", *client.TaxNumber)
+	}
 }
 
 func (s *TimesheetService) CalculateDuration(session *models.WorkSession) time.Duration {

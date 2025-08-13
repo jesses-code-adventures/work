@@ -6,7 +6,8 @@ import (
 	"github.com/jesses-code-adventures/work/internal/models"
 )
 
-type ClientBillingDetails struct {
+type ClientUpdateDetails struct {
+	HourlyRate   *float64
 	CompanyName  *string
 	ContactName  *string
 	Email        *string
@@ -26,8 +27,7 @@ type DB interface {
 	CreateClient(ctx context.Context, name string, hourlyRate float64) (*models.Client, error)
 	GetClientByName(ctx context.Context, name string) (*models.Client, error)
 	ListClients(ctx context.Context) ([]*models.Client, error)
-	UpdateClientRate(ctx context.Context, clientID string, hourlyRate float64) (*models.Client, error)
-	UpdateClientBilling(ctx context.Context, clientID string, billing *ClientBillingDetails) (*models.Client, error)
+	UpdateClient(ctx context.Context, clientID string, billing *ClientUpdateDetails) (*models.Client, error)
 
 	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate float64) (*models.WorkSession, error)
 	GetActiveSession(ctx context.Context) (*models.WorkSession, error)

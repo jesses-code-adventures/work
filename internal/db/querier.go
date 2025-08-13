@@ -22,8 +22,7 @@ type Querier interface {
 	ListRecentSessions(ctx context.Context, limitCount int64) ([]ListRecentSessionsRow, error)
 	ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error)
 	StopSession(ctx context.Context, arg StopSessionParams) (Session, error)
-	UpdateClientBilling(ctx context.Context, arg UpdateClientBillingParams) (Client, error)
-	UpdateClientRate(ctx context.Context, arg UpdateClientRateParams) (Client, error)
+	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 }
 
 var _ Querier = (*Queries)(nil)

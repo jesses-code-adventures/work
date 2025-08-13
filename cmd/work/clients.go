@@ -38,7 +38,7 @@ func newClientsListCmd(timesheetService *service.TimesheetService) *cobra.Comman
 }
 
 func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Command {
-	var hourlyRate float32
+	var hourlyRate float64
 	var client string
 	var companyName, contactName, email, phone string
 	var addressLine1, addressLine2, city, state, postalCode, country, taxNumber string
@@ -53,34 +53,25 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 				return fmt.Errorf("client name is required")
 			}
 
-			// If only hourly rate is provided, use the old function
-			if hourlyRate > 0 && !hasBillingFlags(cmd) {
-				return updateClient(ctx, timesheetService, client, float64(hourlyRate))
-			}
-
-			// If billing details are provided, update billing
-			if hasBillingFlags(cmd) {
-				return updateClientBilling(ctx, timesheetService, client, &database.ClientBillingDetails{
-					CompanyName:  stringPtr(companyName),
-					ContactName:  stringPtr(contactName),
-					Email:        stringPtr(email),
-					Phone:        stringPtr(phone),
-					AddressLine1: stringPtr(addressLine1),
-					AddressLine2: stringPtr(addressLine2),
-					City:         stringPtr(city),
-					State:        stringPtr(state),
-					PostalCode:   stringPtr(postalCode),
-					Country:      stringPtr(country),
-					TaxNumber:    stringPtr(taxNumber),
-				})
-			}
-
-			return fmt.Errorf("either hourly rate or billing details must be provided")
+			return updateClient(ctx, timesheetService, client, &database.ClientUpdateDetails{
+				HourlyRate:   &hourlyRate,
+				CompanyName:  stringPtr(companyName),
+				ContactName:  stringPtr(contactName),
+				Email:        stringPtr(email),
+				Phone:        stringPtr(phone),
+				AddressLine1: stringPtr(addressLine1),
+				AddressLine2: stringPtr(addressLine2),
+				City:         stringPtr(city),
+				State:        stringPtr(state),
+				PostalCode:   stringPtr(postalCode),
+				Country:      stringPtr(country),
+				TaxNumber:    stringPtr(taxNumber),
+			})
 		},
 	}
 
 	cmd.Flags().StringVarP(&client, "client", "c", "", "Name of the client to update")
-	cmd.Flags().Float32VarP(&hourlyRate, "rate", "r", 0.0, "Hourly rate for the client")
+	cmd.Flags().Float64VarP(&hourlyRate, "rate", "r", 0.0, "Hourly rate for the client")
 
 	// Billing detail flags
 	cmd.Flags().StringVar(&companyName, "company", "", "Company name")
@@ -91,7 +82,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	cmd.Flags().StringVar(&addressLine2, "address2", "", "Address line 2")
 	cmd.Flags().StringVar(&city, "city", "", "City")
 	cmd.Flags().StringVar(&state, "state", "", "State/Province")
-	cmd.Flags().StringVar(&postalCode, "postal", "", "Postal/ZIP code")
+	cmd.Flags().StringVar(&postalCode, "postcode", "", "Postal/ZIP code")
 	cmd.Flags().StringVar(&country, "country", "", "Country")
 	cmd.Flags().StringVar(&taxNumber, "tax", "", "Tax/VAT number")
 
@@ -166,34 +157,15 @@ func listClients(ctx context.Context, timesheetService *service.TimesheetService
 	return nil
 }
 
-func updateClient(ctx context.Context, timesheetService *service.TimesheetService, client string, rate float64) error {
-	clients, err := timesheetService.UpdateClient(ctx, client, rate)
-	if err != nil {
-		return fmt.Errorf("failed to update client: %w", err)
-	}
-
-	fmt.Printf("Updated client '%s' to $%v\n", clients.Name, clients.HourlyRate)
-	return nil
-}
-
-func updateClientBilling(ctx context.Context, timesheetService *service.TimesheetService, clientName string, billing *database.ClientBillingDetails) error {
-	client, err := timesheetService.UpdateClientBilling(ctx, clientName, billing)
+func updateClient(ctx context.Context, timesheetService *service.TimesheetService, clientName string, billing *database.ClientUpdateDetails) error {
+	client, err := timesheetService.UpdateClient(ctx, clientName, billing)
 	if err != nil {
 		return fmt.Errorf("failed to update client billing: %w", err)
 	}
 
-	fmt.Printf("Updated billing details for client '%s'\n", client.Name)
+	fmt.Printf("Updated client '%s'\nNew state: \n", client.Name)
+	timesheetService.DisplayClient(ctx, client)
 	return nil
-}
-
-func hasBillingFlags(cmd *cobra.Command) bool {
-	flags := []string{"company", "contact", "email", "phone", "address1", "address2", "city", "state", "postal", "country", "tax"}
-	for _, flag := range flags {
-		if cmd.Flags().Changed(flag) {
-			return true
-		}
-	}
-	return false
 }
 
 func stringPtr(s string) *string {

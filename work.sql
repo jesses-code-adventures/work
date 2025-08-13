@@ -4,7 +4,7 @@ CREATE TABLE clients (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     hourly_rate DECIMAL(10,2) DEFAULT 0.00
-);
+, company_name VARCHAR(255), contact_name VARCHAR(255), email VARCHAR(255), phone VARCHAR(50), address_line1 VARCHAR(255), address_line2 VARCHAR(255), city VARCHAR(100), state VARCHAR(100), postal_code VARCHAR(20), country VARCHAR(100), tax_number VARCHAR(50));
 CREATE TABLE sessions (
     id TEXT PRIMARY KEY NOT NULL,
     client_id TEXT NOT NULL,

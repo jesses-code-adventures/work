@@ -15,15 +15,10 @@ WHERE id = sqlc.arg(id);
 SELECT * FROM clients
 ORDER BY name;
 
--- name: UpdateClientRate :one
-UPDATE clients 
-SET hourly_rate = sqlc.arg(hourly_rate)
-WHERE id = sqlc.arg(id)
-RETURNING *;
-
--- name: UpdateClientBilling :one
+-- name: UpdateClient :one
 UPDATE clients 
 SET 
+	hourly_rate = sqlc.narg(hourly_rate),
     company_name = sqlc.narg(company_name),
     contact_name = sqlc.narg(contact_name),
     email = sqlc.narg(email),

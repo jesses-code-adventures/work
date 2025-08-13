@@ -231,7 +231,7 @@ func (s *SQLiteDB) ListRecentSessions(ctx context.Context, limit int32) ([]*mode
 }
 
 func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDate string, limit int32) ([]*models.WorkSession, error) {
-	var startDate, endDate interface{}
+	var startDate, endDate any
 	if fromDate != "" {
 		startDate = fromDate
 	}
@@ -271,35 +271,21 @@ func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDa
 	return result, nil
 }
 
-func (s *SQLiteDB) UpdateClientRate(ctx context.Context, clientID string, hourlyRate float64) (*models.Client, error) {
-	client, err := s.queries.UpdateClientRate(ctx, db.UpdateClientRateParams{
-		ID: clientID,
-		HourlyRate: sql.NullFloat64{
-			Float64: hourlyRate,
-			Valid:   hourlyRate > 0,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to update client rate: %w", err)
-	}
-
-	return s.convertDBClientToModel(client), nil
-}
-
-func (s *SQLiteDB) UpdateClientBilling(ctx context.Context, clientID string, billing *ClientBillingDetails) (*models.Client, error) {
-	client, err := s.queries.UpdateClientBilling(ctx, db.UpdateClientBillingParams{
+func (s *SQLiteDB) UpdateClient(ctx context.Context, clientID string, updates *ClientUpdateDetails) (*models.Client, error) {
+	client, err := s.queries.UpdateClient(ctx, db.UpdateClientParams{
 		ID:           clientID,
-		CompanyName:  ptrToNullString(billing.CompanyName),
-		ContactName:  ptrToNullString(billing.ContactName),
-		Email:        ptrToNullString(billing.Email),
-		Phone:        ptrToNullString(billing.Phone),
-		AddressLine1: ptrToNullString(billing.AddressLine1),
-		AddressLine2: ptrToNullString(billing.AddressLine2),
-		City:         ptrToNullString(billing.City),
-		State:        ptrToNullString(billing.State),
-		PostalCode:   ptrToNullString(billing.PostalCode),
-		Country:      ptrToNullString(billing.Country),
-		TaxNumber:    ptrToNullString(billing.TaxNumber),
+		HourlyRate:   sql.NullFloat64{Float64: *updates.HourlyRate, Valid: true},
+		CompanyName:  ptrToNullString(updates.CompanyName),
+		ContactName:  ptrToNullString(updates.ContactName),
+		Email:        ptrToNullString(updates.Email),
+		Phone:        ptrToNullString(updates.Phone),
+		AddressLine1: ptrToNullString(updates.AddressLine1),
+		AddressLine2: ptrToNullString(updates.AddressLine2),
+		City:         ptrToNullString(updates.City),
+		State:        ptrToNullString(updates.State),
+		PostalCode:   ptrToNullString(updates.PostalCode),
+		Country:      ptrToNullString(updates.Country),
+		TaxNumber:    ptrToNullString(updates.TaxNumber),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update client billing: %w", err)
@@ -317,7 +303,7 @@ func (s *SQLiteDB) DeleteAllSessions(ctx context.Context) error {
 }
 
 func (s *SQLiteDB) DeleteSessionsByDateRange(ctx context.Context, fromDate, toDate string) error {
-	var startDate, endDate interface{}
+	var startDate, endDate any
 	if fromDate != "" {
 		startDate = fromDate
 	}
