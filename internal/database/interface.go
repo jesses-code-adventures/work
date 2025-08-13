@@ -6,6 +6,20 @@ import (
 	"github.com/jessewilliams/work/internal/models"
 )
 
+type ClientBillingDetails struct {
+	CompanyName  *string
+	ContactName  *string
+	Email        *string
+	Phone        *string
+	AddressLine1 *string
+	AddressLine2 *string
+	City         *string
+	State        *string
+	PostalCode   *string
+	Country      *string
+	TaxNumber    *string
+}
+
 type DB interface {
 	Close() error
 
@@ -13,6 +27,7 @@ type DB interface {
 	GetClientByName(ctx context.Context, name string) (*models.Client, error)
 	ListClients(ctx context.Context) ([]*models.Client, error)
 	UpdateClientRate(ctx context.Context, clientID string, hourlyRate float64) (*models.Client, error)
+	UpdateClientBilling(ctx context.Context, clientID string, billing *ClientBillingDetails) (*models.Client, error)
 
 	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate float64) (*models.WorkSession, error)
 	GetActiveSession(ctx context.Context) (*models.WorkSession, error)

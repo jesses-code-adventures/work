@@ -11,19 +11,45 @@ import (
 )
 
 const createClient = `-- name: CreateClient :one
-INSERT INTO clients (id, name, hourly_rate)
-VALUES (?1, ?2, ?3)
-RETURNING id, name, created_at, updated_at, hourly_rate
+INSERT INTO clients (id, name, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number
 `
 
 type CreateClientParams struct {
-	ID         string          `db:"id" json:"id"`
-	Name       string          `db:"name" json:"name"`
-	HourlyRate sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
+	ID           string          `db:"id" json:"id"`
+	Name         string          `db:"name" json:"name"`
+	HourlyRate   sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
+	CompanyName  sql.NullString  `db:"company_name" json:"company_name"`
+	ContactName  sql.NullString  `db:"contact_name" json:"contact_name"`
+	Email        sql.NullString  `db:"email" json:"email"`
+	Phone        sql.NullString  `db:"phone" json:"phone"`
+	AddressLine1 sql.NullString  `db:"address_line1" json:"address_line1"`
+	AddressLine2 sql.NullString  `db:"address_line2" json:"address_line2"`
+	City         sql.NullString  `db:"city" json:"city"`
+	State        sql.NullString  `db:"state" json:"state"`
+	PostalCode   sql.NullString  `db:"postal_code" json:"postal_code"`
+	Country      sql.NullString  `db:"country" json:"country"`
+	TaxNumber    sql.NullString  `db:"tax_number" json:"tax_number"`
 }
 
 func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) (Client, error) {
-	row := q.db.QueryRowContext(ctx, createClient, arg.ID, arg.Name, arg.HourlyRate)
+	row := q.db.QueryRowContext(ctx, createClient,
+		arg.ID,
+		arg.Name,
+		arg.HourlyRate,
+		arg.CompanyName,
+		arg.ContactName,
+		arg.Email,
+		arg.Phone,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
+		arg.Country,
+		arg.TaxNumber,
+	)
 	var i Client
 	err := row.Scan(
 		&i.ID,
@@ -31,12 +57,23 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) (Cli
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HourlyRate,
+		&i.CompanyName,
+		&i.ContactName,
+		&i.Email,
+		&i.Phone,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.Country,
+		&i.TaxNumber,
 	)
 	return i, err
 }
 
 const getClientById = `-- name: GetClientById :one
-SELECT id, name, created_at, updated_at, hourly_rate FROM clients
+SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number FROM clients
 WHERE id = ?1
 `
 
@@ -49,12 +86,23 @@ func (q *Queries) GetClientById(ctx context.Context, id string) (Client, error) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HourlyRate,
+		&i.CompanyName,
+		&i.ContactName,
+		&i.Email,
+		&i.Phone,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.Country,
+		&i.TaxNumber,
 	)
 	return i, err
 }
 
 const getClientByName = `-- name: GetClientByName :one
-SELECT id, name, created_at, updated_at, hourly_rate FROM clients
+SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number FROM clients
 WHERE name = ?1
 `
 
@@ -67,12 +115,23 @@ func (q *Queries) GetClientByName(ctx context.Context, name string) (Client, err
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HourlyRate,
+		&i.CompanyName,
+		&i.ContactName,
+		&i.Email,
+		&i.Phone,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.Country,
+		&i.TaxNumber,
 	)
 	return i, err
 }
 
 const listClients = `-- name: ListClients :many
-SELECT id, name, created_at, updated_at, hourly_rate FROM clients
+SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number FROM clients
 ORDER BY name
 `
 
@@ -91,6 +150,17 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.HourlyRate,
+			&i.CompanyName,
+			&i.ContactName,
+			&i.Email,
+			&i.Phone,
+			&i.AddressLine1,
+			&i.AddressLine2,
+			&i.City,
+			&i.State,
+			&i.PostalCode,
+			&i.Country,
+			&i.TaxNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -105,11 +175,81 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 	return items, nil
 }
 
+const updateClientBilling = `-- name: UpdateClientBilling :one
+UPDATE clients 
+SET 
+    company_name = ?1,
+    contact_name = ?2,
+    email = ?3,
+    phone = ?4,
+    address_line1 = ?5,
+    address_line2 = ?6,
+    city = ?7,
+    state = ?8,
+    postal_code = ?9,
+    country = ?10,
+    tax_number = ?11
+WHERE id = ?12
+RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number
+`
+
+type UpdateClientBillingParams struct {
+	CompanyName  sql.NullString `db:"company_name" json:"company_name"`
+	ContactName  sql.NullString `db:"contact_name" json:"contact_name"`
+	Email        sql.NullString `db:"email" json:"email"`
+	Phone        sql.NullString `db:"phone" json:"phone"`
+	AddressLine1 sql.NullString `db:"address_line1" json:"address_line1"`
+	AddressLine2 sql.NullString `db:"address_line2" json:"address_line2"`
+	City         sql.NullString `db:"city" json:"city"`
+	State        sql.NullString `db:"state" json:"state"`
+	PostalCode   sql.NullString `db:"postal_code" json:"postal_code"`
+	Country      sql.NullString `db:"country" json:"country"`
+	TaxNumber    sql.NullString `db:"tax_number" json:"tax_number"`
+	ID           string         `db:"id" json:"id"`
+}
+
+func (q *Queries) UpdateClientBilling(ctx context.Context, arg UpdateClientBillingParams) (Client, error) {
+	row := q.db.QueryRowContext(ctx, updateClientBilling,
+		arg.CompanyName,
+		arg.ContactName,
+		arg.Email,
+		arg.Phone,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.City,
+		arg.State,
+		arg.PostalCode,
+		arg.Country,
+		arg.TaxNumber,
+		arg.ID,
+	)
+	var i Client
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HourlyRate,
+		&i.CompanyName,
+		&i.ContactName,
+		&i.Email,
+		&i.Phone,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.Country,
+		&i.TaxNumber,
+	)
+	return i, err
+}
+
 const updateClientRate = `-- name: UpdateClientRate :one
 UPDATE clients 
 SET hourly_rate = ?1
 WHERE id = ?2
-RETURNING id, name, created_at, updated_at, hourly_rate
+RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number
 `
 
 type UpdateClientRateParams struct {
@@ -126,6 +266,17 @@ func (q *Queries) UpdateClientRate(ctx context.Context, arg UpdateClientRatePara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HourlyRate,
+		&i.CompanyName,
+		&i.ContactName,
+		&i.Email,
+		&i.Phone,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.City,
+		&i.State,
+		&i.PostalCode,
+		&i.Country,
+		&i.TaxNumber,
 	)
 	return i, err
 }

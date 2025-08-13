@@ -80,18 +80,7 @@ func (s *SQLiteDB) CreateClient(ctx context.Context, name string, hourlyRate flo
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	var rate float64
-	if client.HourlyRate.Valid {
-		rate = client.HourlyRate.Float64
-	}
-
-	return &models.Client{
-		ID:         client.ID,
-		Name:       client.Name,
-		HourlyRate: rate,
-		CreatedAt:  client.CreatedAt,
-		UpdatedAt:  client.UpdatedAt,
-	}, nil
+	return s.convertDBClientToModel(client), nil
 }
 
 func (s *SQLiteDB) GetClientByName(ctx context.Context, name string) (*models.Client, error) {
@@ -103,18 +92,7 @@ func (s *SQLiteDB) GetClientByName(ctx context.Context, name string) (*models.Cl
 		return nil, fmt.Errorf("failed to get client by name: %w", err)
 	}
 
-	var rate float64
-	if client.HourlyRate.Valid {
-		rate = client.HourlyRate.Float64
-	}
-
-	return &models.Client{
-		ID:         client.ID,
-		Name:       client.Name,
-		HourlyRate: rate,
-		CreatedAt:  client.CreatedAt,
-		UpdatedAt:  client.UpdatedAt,
-	}, nil
+	return s.convertDBClientToModel(client), nil
 }
 
 func (s *SQLiteDB) ListClients(ctx context.Context) ([]*models.Client, error) {
@@ -125,18 +103,7 @@ func (s *SQLiteDB) ListClients(ctx context.Context) ([]*models.Client, error) {
 
 	result := make([]*models.Client, len(clients))
 	for i, client := range clients {
-		var rate float64
-		if client.HourlyRate.Valid {
-			rate = client.HourlyRate.Float64
-		}
-
-		result[i] = &models.Client{
-			ID:         client.ID,
-			Name:       client.Name,
-			HourlyRate: rate,
-			CreatedAt:  client.CreatedAt,
-			UpdatedAt:  client.UpdatedAt,
-		}
+		result[i] = s.convertDBClientToModel(client)
 	}
 
 	return result, nil
@@ -316,18 +283,29 @@ func (s *SQLiteDB) UpdateClientRate(ctx context.Context, clientID string, hourly
 		return nil, fmt.Errorf("failed to update client rate: %w", err)
 	}
 
-	var rate float64
-	if client.HourlyRate.Valid {
-		rate = client.HourlyRate.Float64
+	return s.convertDBClientToModel(client), nil
+}
+
+func (s *SQLiteDB) UpdateClientBilling(ctx context.Context, clientID string, billing *ClientBillingDetails) (*models.Client, error) {
+	client, err := s.queries.UpdateClientBilling(ctx, db.UpdateClientBillingParams{
+		ID:           clientID,
+		CompanyName:  ptrToNullString(billing.CompanyName),
+		ContactName:  ptrToNullString(billing.ContactName),
+		Email:        ptrToNullString(billing.Email),
+		Phone:        ptrToNullString(billing.Phone),
+		AddressLine1: ptrToNullString(billing.AddressLine1),
+		AddressLine2: ptrToNullString(billing.AddressLine2),
+		City:         ptrToNullString(billing.City),
+		State:        ptrToNullString(billing.State),
+		PostalCode:   ptrToNullString(billing.PostalCode),
+		Country:      ptrToNullString(billing.Country),
+		TaxNumber:    ptrToNullString(billing.TaxNumber),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update client billing: %w", err)
 	}
 
-	return &models.Client{
-		ID:         client.ID,
-		Name:       client.Name,
-		HourlyRate: rate,
-		CreatedAt:  client.CreatedAt,
-		UpdatedAt:  client.UpdatedAt,
-	}, nil
+	return s.convertDBClientToModel(client), nil
 }
 
 func (s *SQLiteDB) DeleteAllSessions(ctx context.Context) error {
@@ -369,4 +347,37 @@ func nullStringToPtr(ns sql.NullString) *string {
 		return &ns.String
 	}
 	return nil
+}
+
+func (s *SQLiteDB) convertDBClientToModel(client db.Client) *models.Client {
+	var rate float64
+	if client.HourlyRate.Valid {
+		rate = client.HourlyRate.Float64
+	}
+
+	return &models.Client{
+		ID:           client.ID,
+		Name:         client.Name,
+		HourlyRate:   rate,
+		CompanyName:  nullStringToPtr(client.CompanyName),
+		ContactName:  nullStringToPtr(client.ContactName),
+		Email:        nullStringToPtr(client.Email),
+		Phone:        nullStringToPtr(client.Phone),
+		AddressLine1: nullStringToPtr(client.AddressLine1),
+		AddressLine2: nullStringToPtr(client.AddressLine2),
+		City:         nullStringToPtr(client.City),
+		State:        nullStringToPtr(client.State),
+		PostalCode:   nullStringToPtr(client.PostalCode),
+		Country:      nullStringToPtr(client.Country),
+		TaxNumber:    nullStringToPtr(client.TaxNumber),
+		CreatedAt:    client.CreatedAt,
+		UpdatedAt:    client.UpdatedAt,
+	}
+}
+
+func ptrToNullString(s *string) sql.NullString {
+	if s != nil {
+		return sql.NullString{String: *s, Valid: true}
+	}
+	return sql.NullString{Valid: false}
 }

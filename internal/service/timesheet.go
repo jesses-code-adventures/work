@@ -113,6 +113,10 @@ func (s *TimesheetService) ListClients(ctx context.Context) ([]*models.Client, e
 	return s.db.ListClients(ctx)
 }
 
+func (s *TimesheetService) GetClientByName(ctx context.Context, name string) (*models.Client, error) {
+	return s.db.GetClientByName(ctx, name)
+}
+
 func (s *TimesheetService) UpdateClient(ctx context.Context, client string, rate float64) (*models.Client, error) {
 	if rate == 0.0 {
 		return nil, nil
@@ -125,6 +129,17 @@ func (s *TimesheetService) UpdateClient(ctx context.Context, client string, rate
 		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 	return s.db.UpdateClientRate(ctx, c.ID, rate)
+}
+
+func (s *TimesheetService) UpdateClientBilling(ctx context.Context, clientName string, billing *database.ClientBillingDetails) (*models.Client, error) {
+	c, err := s.db.GetClientByName(ctx, clientName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("client '%s' does not exist", clientName)
+		}
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+	return s.db.UpdateClientBilling(ctx, c.ID, billing)
 }
 
 func (s *TimesheetService) CalculateDuration(session *models.WorkSession) time.Duration {
