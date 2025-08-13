@@ -2,13 +2,28 @@
 
 BIN_NAME := work
 DB_FILE := $(BIN_NAME).db
+MIGRATIONS := ./migrations
+
+-include .env
+
+PROD_DATABASE := $(PROD_DATABASE_URL)?authToken=$(TURSO_TOKEN)
 
 # Build binary
 build:
 	go build -o bin/$(BIN_NAME) ./cmd/$(BIN_NAME)
 
+build-prod:
+	go build -ldflags "\
+		-X 'main.DBConn=$(PROD_DATABASE)' \
+		-X 'main.DBDriver=$(PROD_DATABASE_DRIVER)'" \
+		-o bin/$(BIN_NAME) \
+		./cmd/$(BIN_NAME)
+
 # Install to system
 install: build
+	cp bin/$(BIN_NAME) ~/.local/bin/$(BIN_NAME)
+
+prod-install: build-prod
 	cp bin/$(BIN_NAME) ~/.local/bin/$(BIN_NAME)
 
 # Database schema dump
@@ -80,3 +95,16 @@ clean:
 deps:
 	go mod tidy
 	go mod download
+
+dump:
+	@echo "Database Name: $(DATABASE_NAME)"
+	@echo "Database Driver: $(DATABASE_DRIVER)"
+	@echo "Local Database URL: $(DATABASE_URL)"
+	@echo "Prod Database: $(PROD_DATABASE)"
+
+prod-db-shell:
+	turso db shell $(PROD_DATABASE)
+
+db-reset:
+	rm -f $(DB_FILE)
+	sqlite3 $(DB_FILE) ".read $(BIN_NAME).sql"

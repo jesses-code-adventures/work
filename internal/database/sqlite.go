@@ -7,33 +7,59 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 
+	"github.com/jessewilliams/work/internal/config"
 	"github.com/jessewilliams/work/internal/db"
 	"github.com/jessewilliams/work/internal/models"
 )
 
 type SQLiteDB struct {
-	conn    *sql.DB
-	queries *db.Queries
+	conn     *sql.DB
+	queries  *db.Queries
+	exitFunc func()
 }
 
-func NewSQLiteDB(databaseURL string) (*SQLiteDB, error) {
-	conn, err := sql.Open("sqlite3", databaseURL)
+func NewDB(cfg *config.Config) (*SQLiteDB, error) {
+	conn, err := sql.Open(cfg.DatabaseDriver, cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
-
-	if err := conn.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	return &SQLiteDB{
+	s := SQLiteDB{
 		conn:    conn,
 		queries: db.New(conn),
-	}, nil
+	}
+	return &s, nil
+}
+
+func NewTursoDBWithEmbeddedReplica(cfg *config.Config) (*SQLiteDB, error) {
+	// TODO: implement - https://docs.turso.tech/sdk/go/quickstart
+	return nil, fmt.Errorf("not implemented")
+	// connector, err := libsql.NewEmbeddedReplicaConnector(cfg.DatabasePath, cfg.DatabaseURL,
+	// 	libsql.WithAuthToken(cfg.TursoToken),
+	// )
+	// if err != nil {
+	// 	fmt.Println("Error creating connector:", err)
+	// 	os.Exit(1)
+	// }
+	// conn := sql.OpenDB(connector)
+	// s := SQLiteDB{
+	// 	conn:    conn,
+	// 	queries: db.New(conn),
+	// }
+	// s.exitFunc = func() {
+	// 	if _, err := connector.Sync(); err != nil {
+	// 		fmt.Println("Error syncing database:", err)
+	// 		os.Exit(1)
+	// 	}
+	// }
+	// return &s, nil
 }
 
 func (s *SQLiteDB) Close() error {
+	if s.exitFunc != nil {
+		s.exitFunc()
+	}
 	return s.conn.Close()
 }
 
