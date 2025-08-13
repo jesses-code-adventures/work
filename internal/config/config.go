@@ -13,7 +13,6 @@ type Config struct {
 	DatabaseURL    string
 	DatabaseDriver string
 	TempDir        string
-	TursoToken     string
 }
 
 func Load(dbConn, dbDriver string) (*Config, error) {
@@ -33,7 +32,6 @@ func Load(dbConn, dbDriver string) (*Config, error) {
 		DatabaseName:   getEnv("DATABASE_NAME", "work"),
 		DatabaseURL:    dbConn,
 		DatabaseDriver: dbDriver,
-		TursoToken:     mustGetEnv("TURSO_TOKEN"),
 	}
 
 	return cfg, nil
@@ -43,7 +41,6 @@ func (c *Config) Dump() {
 	fmt.Printf("Database Name: %s\n", c.DatabaseName)
 	fmt.Printf("Database URL: %s\n", c.DatabaseURL)
 	fmt.Printf("Database Driver: %s\n", c.DatabaseDriver)
-	fmt.Printf("Turso Token: %s\n", c.TursoToken)
 }
 
 func getEnv(key, defaultValue string) string {

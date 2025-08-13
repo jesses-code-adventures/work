@@ -27,6 +27,7 @@ func newStatusCmd(timesheetService *service.TimesheetService) *cobra.Command {
 			}
 
 			duration := timesheetService.CalculateDuration(session)
+			billableAmount := timesheetService.CalculateBillableAmount(session)
 
 			fmt.Printf("Active work session:\n")
 			fmt.Printf("Client: %s\n", session.ClientName)
@@ -34,6 +35,7 @@ func newStatusCmd(timesheetService *service.TimesheetService) *cobra.Command {
 				session.StartTime.Format("15:04:05"),
 				session.StartTime.Format("2006-01-02"))
 			fmt.Printf("Duration: %s\n", timesheetService.FormatDuration(duration))
+			fmt.Printf("Billable amount: %s\n", timesheetService.FormatBillableAmount(billableAmount))
 
 			if session.Description != nil && *session.Description != "" {
 				fmt.Printf("Description: %s\n", *session.Description)
