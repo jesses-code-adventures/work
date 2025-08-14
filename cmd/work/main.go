@@ -13,6 +13,8 @@ import (
 
 var DBConn string
 var DBDriver string
+var GitPrompt string
+var DevMode string
 
 func main() {
 	if err := run(); err != nil {
@@ -23,7 +25,7 @@ func main() {
 
 // TODO: test and use this
 func runWithEmbeddedReplica() error {
-	cfg, err := config.Load(DBConn, DBDriver)
+	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -43,14 +45,14 @@ func runWithEmbeddedReplica() error {
 	}
 	defer db.Close()
 
-	timesheetService := service.NewTimesheetService(db)
+	timesheetService := service.NewTimesheetService(db, cfg)
 
 	rootCmd := newRootCmd(timesheetService)
 	return rootCmd.ExecuteContext(context.Background())
 }
 
 func run() error {
-	cfg, err := config.Load(DBConn, DBDriver)
+	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -61,7 +63,7 @@ func run() error {
 	}
 	defer db.Close()
 
-	timesheetService := service.NewTimesheetService(db)
+	timesheetService := service.NewTimesheetService(db, cfg)
 
 	rootCmd := newRootCmd(timesheetService)
 	return rootCmd.ExecuteContext(context.Background())

@@ -8,14 +8,16 @@ import (
 )
 
 type Config struct {
-	DatabaseName   string
-	DatabasePath   string
-	DatabaseURL    string
-	DatabaseDriver string
-	TempDir        string
+	DatabaseName      string
+	DatabasePath      string
+	DatabaseURL       string
+	DatabaseDriver    string
+	TempDir           string
+	GitAnalysisPrompt string
+	DevMode           bool
 }
 
-func Load(dbConn, dbDriver string) (*Config, error) {
+func Load(dbConn, dbDriver, gitPrompt, devMode string) (*Config, error) {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("error loading .env file: %w", err)
 	}
@@ -28,10 +30,19 @@ func Load(dbConn, dbDriver string) (*Config, error) {
 		dbDriver = getEnv("DATABASE_DRIVER", "sqlite3")
 	}
 
+	if gitPrompt == "" {
+		gitPrompt = getEnv("GIT_ANALYSIS_PROMPT", "use git log to review the commits between date {from_date} and date {to_date}. create a curt list of dot points explaining what has been done in the commits. feel free to look at the diffs in the commits themselves. if there are no commits, say NO COMMITS and nothing else.")
+	}
+
+	// Dev mode defaults to true for local builds, false for prod
+	isDevMode := devMode == "true" || (devMode == "" && getEnv("DEV_MODE", "true") == "true")
+
 	cfg := &Config{
-		DatabaseName:   getEnv("DATABASE_NAME", "work"),
-		DatabaseURL:    dbConn,
-		DatabaseDriver: dbDriver,
+		DatabaseName:      getEnv("DATABASE_NAME", "work"),
+		DatabaseURL:       dbConn,
+		DatabaseDriver:    dbDriver,
+		GitAnalysisPrompt: gitPrompt,
+		DevMode:           isDevMode,
 	}
 
 	return cfg, nil

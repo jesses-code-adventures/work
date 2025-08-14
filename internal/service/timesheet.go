@@ -7,16 +7,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jesses-code-adventures/work/internal/config"
 	"github.com/jesses-code-adventures/work/internal/database"
 	"github.com/jesses-code-adventures/work/internal/models"
 )
 
 type TimesheetService struct {
-	db database.DB
+	db  database.DB
+	cfg *config.Config
 }
 
-func NewTimesheetService(db database.DB) *TimesheetService {
-	return &TimesheetService{db: db}
+func NewTimesheetService(db database.DB, cfg *config.Config) *TimesheetService {
+	return &TimesheetService{db: db, cfg: cfg}
+}
+
+func (s *TimesheetService) Config() *config.Config {
+	return s.cfg
 }
 
 func (s *TimesheetService) StartWork(ctx context.Context, clientName string, description *string) (*models.WorkSession, error) {

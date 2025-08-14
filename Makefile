@@ -10,12 +10,16 @@ PROD_DATABASE := $(PROD_DATABASE_URL)?authToken=$(TURSO_TOKEN)
 
 # Build binary
 build:
-	go build -o bin/$(BIN_NAME) ./cmd/$(BIN_NAME)
+	go build -o bin/$(BIN_NAME) \
+		-ldflags "-X 'main.GitPrompt=$(GIT_ANALYSIS_PROMPT)'" \
+		./cmd/$(BIN_NAME)
 
 build-prod:
 	go build -ldflags "\
 		-X 'main.DBConn=$(PROD_DATABASE)' \
-		-X 'main.DBDriver=$(PROD_DATABASE_DRIVER)'" \
+		-X 'main.DBDriver=$(PROD_DATABASE_DRIVER)' \
+		-X 'main.GitPrompt=$(GIT_ANALYSIS_PROMPT)' \
+		-X 'main.DevMode=false'" \
 		-o bin/$(BIN_NAME) \
 		./cmd/$(BIN_NAME)
 
