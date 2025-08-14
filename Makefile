@@ -107,4 +107,8 @@ prod-db-shell:
 
 db-reset:
 	rm -f $(DB_FILE)
-	sqlite3 $(DB_FILE) ".read $(BIN_NAME).sql"
+	for f in $(MIGRATIONS)/*.sql; do \
+		echo "Executing migration: $$f"; \
+		sqlite3 $(DB_FILE) ".read $$f"; \
+	done
+	$(MAKE) db-schema-dump
