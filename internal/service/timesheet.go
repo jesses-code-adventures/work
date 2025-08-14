@@ -113,6 +113,10 @@ func (s *TimesheetService) ListClients(ctx context.Context) ([]*models.Client, e
 	return s.db.ListClients(ctx)
 }
 
+func (s *TimesheetService) GetClientsWithDirectories(ctx context.Context) ([]*models.Client, error) {
+	return s.db.GetClientsWithDirectories(ctx)
+}
+
 func (s *TimesheetService) GetClientByName(ctx context.Context, name string) (*models.Client, error) {
 	return s.db.GetClientByName(ctx, name)
 }

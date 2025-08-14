@@ -16,6 +16,7 @@ type Querier interface {
 	GetActiveSession(ctx context.Context) (GetActiveSessionRow, error)
 	GetClientById(ctx context.Context, id string) (Client, error)
 	GetClientByName(ctx context.Context, name string) (Client, error)
+	GetClientsWithDirectories(ctx context.Context) ([]Client, error)
 	GetSessionsByClient(ctx context.Context, clientName string) ([]GetSessionsByClientRow, error)
 	GetSessionsByDateRange(ctx context.Context, arg GetSessionsByDateRangeParams) ([]GetSessionsByDateRangeRow, error)
 	ListClients(ctx context.Context) ([]Client, error)

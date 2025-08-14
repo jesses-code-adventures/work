@@ -109,6 +109,20 @@ func (s *SQLiteDB) ListClients(ctx context.Context) ([]*models.Client, error) {
 	return result, nil
 }
 
+func (s *SQLiteDB) GetClientsWithDirectories(ctx context.Context) ([]*models.Client, error) {
+	clients, err := s.queries.GetClientsWithDirectories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clients with directories: %w", err)
+	}
+
+	result := make([]*models.Client, len(clients))
+	for i, client := range clients {
+		result[i] = s.convertDBClientToModel(client)
+	}
+
+	return result, nil
+}
+
 func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate float64) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
@@ -286,6 +300,7 @@ func (s *SQLiteDB) UpdateClient(ctx context.Context, clientID string, updates *C
 		PostalCode:   ptrToNullString(updates.PostalCode),
 		Country:      ptrToNullString(updates.Country),
 		TaxNumber:    ptrToNullString(updates.TaxNumber),
+		Dir:          ptrToNullString(updates.Dir),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update client billing: %w", err)
@@ -356,6 +371,7 @@ func (s *SQLiteDB) convertDBClientToModel(client db.Client) *models.Client {
 		PostalCode:   nullStringToPtr(client.PostalCode),
 		Country:      nullStringToPtr(client.Country),
 		TaxNumber:    nullStringToPtr(client.TaxNumber),
+		Dir:          nullStringToPtr(client.Dir),
 		CreatedAt:    client.CreatedAt,
 		UpdatedAt:    client.UpdatedAt,
 	}

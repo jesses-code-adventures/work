@@ -19,6 +19,7 @@ type ClientUpdateDetails struct {
 	PostalCode   *string
 	Country      *string
 	TaxNumber    *string
+	Dir          *string
 }
 
 type DB interface {
@@ -27,6 +28,7 @@ type DB interface {
 	CreateClient(ctx context.Context, name string, hourlyRate float64) (*models.Client, error)
 	GetClientByName(ctx context.Context, name string) (*models.Client, error)
 	ListClients(ctx context.Context) ([]*models.Client, error)
+	GetClientsWithDirectories(ctx context.Context) ([]*models.Client, error)
 	UpdateClient(ctx context.Context, clientID string, billing *ClientUpdateDetails) (*models.Client, error)
 
 	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate float64) (*models.WorkSession, error)

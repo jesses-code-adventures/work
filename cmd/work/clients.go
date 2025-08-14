@@ -41,7 +41,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	var hourlyRate float64
 	var client string
 	var companyName, contactName, email, phone string
-	var addressLine1, addressLine2, city, state, postalCode, country, taxNumber string
+	var addressLine1, addressLine2, city, state, postalCode, country, taxNumber, dir string
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -66,6 +66,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 				PostalCode:   stringPtr(postalCode),
 				Country:      stringPtr(country),
 				TaxNumber:    stringPtr(taxNumber),
+				Dir:          stringPtr(dir),
 			})
 		},
 	}
@@ -85,6 +86,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	cmd.Flags().StringVar(&postalCode, "postcode", "", "Postal/ZIP code")
 	cmd.Flags().StringVar(&country, "country", "", "Country")
 	cmd.Flags().StringVar(&taxNumber, "tax", "", "Tax/VAT number")
+	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the client")
 
 	return cmd
 }
@@ -148,6 +150,9 @@ func listClients(ctx context.Context, timesheetService *service.TimesheetService
 			}
 			if client.TaxNumber != nil {
 				fmt.Printf("  Tax Number: %s\n", *client.TaxNumber)
+			}
+			if client.Dir != nil {
+				fmt.Printf("  Directory: %s\n", *client.Dir)
 			}
 		} else {
 			fmt.Printf("%s - %s - %s\n", client.ID, client.Name, rateStr)
