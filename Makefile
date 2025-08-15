@@ -4,7 +4,7 @@ BIN_NAME := work
 DB_FILE := $(BIN_NAME).db
 MIGRATIONS := ./migrations
 
--include .env
+-include .env .env.mine
 
 PROD_DATABASE := $(PROD_DATABASE_URL)?authToken=$(TURSO_TOKEN)
 

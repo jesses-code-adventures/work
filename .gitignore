@@ -2,3 +2,4 @@ bin
 work.db
 ./work
 work.csv
+.env.mine
