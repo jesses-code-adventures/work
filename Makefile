@@ -1,10 +1,12 @@
-.PHONY: build install migrate migrate-down sqlc-gen dev test clean deps db-schema db-inspect db-stats db-query
-
-BIN_NAME := work
-DB_FILE := $(BIN_NAME).db
-MIGRATIONS := ./migrations
+.PHONY: build install sqlc-gen dev test clean deps db-schema db-inspect db-stats db-query
 
 -include .env .env.mine
+
+DATABASE_NAME := $(BIN_NAME)
+DB_FILE := $(DATABASE_NAME).db
+MIGRATIONS := ./migrations
+DATABASE_URL := ./$(DB_FILE)
+
 
 PROD_DATABASE := $(PROD_DATABASE_URL)?authToken=$(TURSO_TOKEN)
 
@@ -14,7 +16,7 @@ build:
 		-ldflags "-X 'main.GitPrompt=$(GIT_ANALYSIS_PROMPT)'" \
 		./cmd/$(BIN_NAME)
 
-build-prod:
+prod-build:
 	go build -ldflags "\
 		-X 'main.DBConn=$(PROD_DATABASE)' \
 		-X 'main.DBDriver=$(PROD_DATABASE_DRIVER)' \
@@ -23,11 +25,40 @@ build-prod:
 		-o bin/$(BIN_NAME) \
 		./cmd/$(BIN_NAME)
 
+check-turso-creds:
+	@if ! grep -q '^TURSO_TOKEN=.*[^[:space:]]' .env.mine; then \
+		echo "ERROR: TURSO_TOKEN is missing or empty in .env.mine" >&2; \
+		exit 1; \
+	fi
+	@if ! grep -q '^PROD_DATABASE_URL=.*[^[:space:]]' .env.mine; then \
+		echo "ERROR: PROD_DATABASE_URL is missing or empty in .env.mine" >&2; \
+		exit 1; \
+	fi
+
+prod-turso-setup:
+	@if ! command -v turso >/dev/null 2>&1; then \
+		echo "Installing turso..."; \
+		curl -sSfL https://get.tur.so/install.sh | bash; \
+	else \
+		echo "turso is already installed"; \
+	fi
+	@turso db create $(DATABASE_NAME) 2>&1 | grep -vq "already exists" || true
+
+prod-init: check-turso-creds
+	@for f in $(MIGRATIONS)/*.sql; do \
+		echo "Executing migration: $$f"; \
+		turso db shell "$(PROD_DATABASE)" < "$$f" || { echo "Migration failed: $$f" >&2; exit 1; }; \
+	done
+	@turso db shell "$(PROD_DATABASE)" < "scripts/tables.sql" || { echo "Migration failed: $$f" >&2; exit 1; }; \
+
+prod-tables:
+	@turso db shell "$(PROD_DATABASE)" < scripts/tables.sql
+
 # Install to system
 install: build
 	cp bin/$(BIN_NAME) ~/.local/bin/$(BIN_NAME)
 
-prod-install: build-prod
+prod-install: prod-build
 	cp bin/$(BIN_NAME) ~/.local/bin/$(BIN_NAME)
 
 # Database schema dump

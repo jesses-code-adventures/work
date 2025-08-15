@@ -22,9 +22,15 @@ make install
 git clone <repository-url>
 cd work
 
-# Configure .env with your Turso database
+# Download turso, authenticate, create a database with the name $(BIN_NAME) from the .env file
+make prod-turso-setup
+
+# Configure .env with your Turso database - you'll need to create a token and get your database URL for these steps
 echo "TURSO_TOKEN=your_turso_token_here" >> .env.mine
 echo "PROD_DATABASE_URL=libsql://your-database.turso.io" >> .env.mine
+
+# Run initial migrations - should only ever need to do this once
+make prod-init
 
 # Build and install
 make prod-install

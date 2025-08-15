@@ -3,3 +3,4 @@ work.db
 ./work
 work.csv
 .env.mine
+prod_dump.sql
