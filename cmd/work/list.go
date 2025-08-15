@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -94,8 +95,8 @@ func displaySession(session *models.WorkSession, timesheetService *service.Times
 	if verbose && session.FullWorkSummary != nil && *session.FullWorkSummary != "" {
 		fmt.Printf("\n  ┌─ Full Work Summary ─────────────────────────────────────────────────\n")
 
-		// Word wrap the full work summary to fit nicely
-		summary := *session.FullWorkSummary
+		// Format the summary with strategic linebreaks for better readability
+		summary := formatSummaryWithBreaks(*session.FullWorkSummary)
 		lines := wrapText(summary, 68) // Leave room for indentation
 
 		for _, line := range lines {
@@ -161,4 +162,43 @@ func wrapText(text string, width int) []string {
 	}
 
 	return lines
+}
+
+// formatSummaryWithBreaks adds strategic linebreaks to improve readability
+func formatSummaryWithBreaks(text string) string {
+	// Add linebreaks after common markdown patterns and structural elements
+	result := text
+
+	// Add linebreaks before markdown headers (## and ###)
+	result = strings.ReplaceAll(result, " ### ", "\n\n### ")
+	result = strings.ReplaceAll(result, " ## ", "\n\n## ")
+
+	// Add linebreaks after sentences that end with repository/section indicators
+	result = strings.ReplaceAll(result, " Repository - ", " Repository\n\n- ")
+	result = strings.ReplaceAll(result, " Project - ", " Project\n\n- ")
+
+	// Add linebreaks before bullet point patterns
+	result = strings.ReplaceAll(result, " - **", "\n- **")
+	result = strings.ReplaceAll(result, " • ", "\n• ")
+
+	// Add breaks after definitions (sentences ending with colon)
+	result = strings.ReplaceAll(result, "definitions ", "definitions\n\n")
+
+	// Add linebreaks after long sentences ending with common patterns
+	result = strings.ReplaceAll(result, "capabilities. ", "capabilities.\n\n")
+	result = strings.ReplaceAll(result, "functionality. ", "functionality.\n\n")
+	result = strings.ReplaceAll(result, "improvements. ", "improvements.\n\n")
+	result = strings.ReplaceAll(result, "workflow. ", "workflow.\n\n")
+	result = strings.ReplaceAll(result, "experience. ", "experience.\n\n")
+	result = strings.ReplaceAll(result, "integrity ", "integrity\n\n")
+
+	// Clean up excessive linebreaks (more than 2 consecutive)
+	for strings.Contains(result, "\n\n\n") {
+		result = strings.ReplaceAll(result, "\n\n\n", "\n\n")
+	}
+
+	// Trim leading/trailing whitespace
+	result = strings.TrimSpace(result)
+
+	return result
 }
