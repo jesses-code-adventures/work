@@ -4,7 +4,7 @@ Who needs interns when we have clankers to do our bidding?
 
 Simple CLI time tracker for freelancers. Track work sessions across multiple clients with automatic billing calculations, PDF invoice generation, and AI-powered work summaries.
 
-**Dependencies:** Requires [OpenCode](https://github.com/sst/opencode) for `summarize` and `descriptions populate` commands that analyze local git repositories to generate work summaries per-client.
+**Dependencies:** Requires [OpenCode](https://github.com/sst/opencode) for `summarize` and `descriptions populate` commands that analyze local git repositories to generate work summaries per-client. Requires your own [Turso](https://turso.tech/) sqlite database if you want to share sessions between machines.
 
 ## Installation
 
@@ -12,9 +12,7 @@ Simple CLI time tracker for freelancers. Track work sessions across multiple cli
 ```bash
 # Clone and build
 git clone <repository-url>
-cd timesheets
-cp .env.example .env  # Edit .env if needed
-make build
+cd work
 make install
 ```
 
@@ -22,14 +20,13 @@ make install
 ```bash
 # Clone and configure
 git clone <repository-url>
-cd timesheets
+cd work
 
 # Configure .env with your Turso database
-echo "TURSO_TOKEN=your_turso_token_here" >> .env
-echo "PROD_DATABASE_URL=libsql://your-database.turso.io" >> .env
+echo "TURSO_TOKEN=your_turso_token_here" >> .env.mine
+echo "PROD_DATABASE_URL=libsql://your-database.turso.io" >> .env.mine
 
 # Build and install
-make build-prod
 make prod-install
 ```
 
