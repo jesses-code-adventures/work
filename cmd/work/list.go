@@ -12,11 +12,12 @@ import (
 func newListCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var limit int32
 	var fromDate, toDate string
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recent work sessions",
-		Long:  "Show a list of recent work sessions with durations and billable amounts. Filter by date range using -f and -t flags.",
+		Long:  "Show a list of recent work sessions with durations and billable amounts. Filter by date range using -f and -t flags. Use -v for verbose output including full work summaries.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
@@ -42,33 +43,7 @@ func newListCmd(timesheetService *service.TimesheetService) *cobra.Command {
 			}
 
 			for _, session := range sessions {
-				duration := timesheetService.CalculateDuration(session)
-				billable := timesheetService.CalculateBillableAmount(session)
-				status := "Active"
-				endTime := "now"
-
-				if session.EndTime != nil {
-					status = "Completed"
-					endTime = session.EndTime.Format("15:04:05")
-				}
-
-				billableStr := ""
-				if billable > 0 {
-					billableStr = fmt.Sprintf(" | %s", timesheetService.FormatBillableAmount(billable))
-				}
-
-				fmt.Printf("%s | %s | %s - %s (%s)%s | %s\n",
-					session.ClientName,
-					session.StartTime.Format("2006-01-02"),
-					session.StartTime.Format("15:04:05"),
-					endTime,
-					timesheetService.FormatDuration(duration),
-					billableStr,
-					status)
-
-				if session.Description != nil && *session.Description != "" {
-					fmt.Printf("- %s\n", *session.Description)
-				}
+				displaySession(session, timesheetService, verbose)
 			}
 
 			return nil
@@ -78,6 +53,112 @@ func newListCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	cmd.Flags().Int32VarP(&limit, "limit", "l", 10, "Number of sessions to show")
 	cmd.Flags().StringVarP(&fromDate, "from", "f", "", "Show sessions from this date (YYYY-MM-DD)")
 	cmd.Flags().StringVarP(&toDate, "to", "t", "", "Show sessions to this date (YYYY-MM-DD)")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show full work summaries")
 
 	return cmd
+}
+
+// displaySession formats and displays a single work session
+func displaySession(session *models.WorkSession, timesheetService *service.TimesheetService, verbose bool) {
+	duration := timesheetService.CalculateDuration(session)
+	billable := timesheetService.CalculateBillableAmount(session)
+	status := "Active"
+	endTime := "now"
+
+	if session.EndTime != nil {
+		status = "Completed"
+		endTime = session.EndTime.Format("15:04:05")
+	}
+
+	billableStr := ""
+	if billable > 0 {
+		billableStr = fmt.Sprintf(" | %s", timesheetService.FormatBillableAmount(billable))
+	}
+
+	// Main session info
+	fmt.Printf("%s | %s | %s - %s (%s)%s | %s\n",
+		session.ClientName,
+		session.StartTime.Format("2006-01-02"),
+		session.StartTime.Format("15:04:05"),
+		endTime,
+		timesheetService.FormatDuration(duration),
+		billableStr,
+		status)
+
+	// Description (always shown if present)
+	if session.Description != nil && *session.Description != "" {
+		fmt.Printf("  → %s\n", *session.Description)
+	}
+
+	// Full work summary (only in verbose mode)
+	if verbose && session.FullWorkSummary != nil && *session.FullWorkSummary != "" {
+		fmt.Printf("\n  ┌─ Full Work Summary ─────────────────────────────────────────────────\n")
+
+		// Word wrap the full work summary to fit nicely
+		summary := *session.FullWorkSummary
+		lines := wrapText(summary, 68) // Leave room for indentation
+
+		for _, line := range lines {
+			fmt.Printf("  │ %s\n", line)
+		}
+		fmt.Printf("  └─────────────────────────────────────────────────────────────────────\n")
+	}
+
+	fmt.Println() // Add spacing between sessions
+}
+
+// wrapText wraps text to the specified width
+func wrapText(text string, width int) []string {
+	if len(text) <= width {
+		return []string{text}
+	}
+
+	var lines []string
+	words := []string{}
+
+	// Split by words, preserving spaces
+	current := ""
+	for _, char := range text {
+		if char == ' ' || char == '\n' || char == '\t' {
+			if current != "" {
+				words = append(words, current)
+				current = ""
+			}
+			if char == '\n' {
+				words = append(words, "\n") // Preserve line breaks
+			} else if char != '\t' { // Skip tabs
+				words = append(words, string(char))
+			}
+		} else {
+			current += string(char)
+		}
+	}
+	if current != "" {
+		words = append(words, current)
+	}
+
+	currentLine := ""
+	for _, word := range words {
+		if word == "\n" {
+			lines = append(lines, currentLine)
+			currentLine = ""
+			continue
+		}
+
+		testLine := currentLine + word
+		if len(testLine) <= width {
+			currentLine = testLine
+		} else {
+			if currentLine != "" {
+				lines = append(lines, currentLine)
+			}
+			currentLine = word
+		}
+	}
+
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	return lines
 }

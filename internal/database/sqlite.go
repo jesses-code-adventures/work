@@ -277,15 +277,16 @@ func (s *SQLiteDB) ListRecentSessions(ctx context.Context, limit int32) ([]*mode
 		}
 
 		result[i] = &models.WorkSession{
-			ID:          session.ID,
-			ClientID:    session.ClientID,
-			StartTime:   session.StartTime,
-			EndTime:     nullTimeToPtr(session.EndTime),
-			Description: nullStringToPtr(session.Description),
-			HourlyRate:  sessionRate,
-			CreatedAt:   session.CreatedAt,
-			UpdatedAt:   session.UpdatedAt,
-			ClientName:  session.ClientName,
+			ID:              session.ID,
+			ClientID:        session.ClientID,
+			StartTime:       session.StartTime,
+			EndTime:         nullTimeToPtr(session.EndTime),
+			Description:     nullStringToPtr(session.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			CreatedAt:       session.CreatedAt,
+			UpdatedAt:       session.UpdatedAt,
+			ClientName:      session.ClientName,
 		}
 	}
 
@@ -318,15 +319,16 @@ func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDa
 		}
 
 		result[i] = &models.WorkSession{
-			ID:          session.ID,
-			ClientID:    session.ClientID,
-			StartTime:   session.StartTime,
-			EndTime:     nullTimeToPtr(session.EndTime),
-			Description: nullStringToPtr(session.Description),
-			HourlyRate:  sessionRate,
-			CreatedAt:   session.CreatedAt,
-			UpdatedAt:   session.UpdatedAt,
-			ClientName:  session.ClientName,
+			ID:              session.ID,
+			ClientID:        session.ClientID,
+			StartTime:       session.StartTime,
+			EndTime:         nullTimeToPtr(session.EndTime),
+			Description:     nullStringToPtr(session.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			CreatedAt:       session.CreatedAt,
+			UpdatedAt:       session.UpdatedAt,
+			ClientName:      session.ClientName,
 		}
 	}
 

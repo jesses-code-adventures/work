@@ -148,4 +148,4 @@ e2e: db-reset install
 	work clients update -c givetel -r 100 -d ~/coding/givetel
 	work session create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
 	work descriptions populate
-	$(MAKE) db-query QUERY="SELECT * FROM sessions WHERE client = 'givetel' ORDER BY start_time ASC"
+	work list -v
