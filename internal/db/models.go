@@ -30,12 +30,13 @@ type Client struct {
 }
 
 type Session struct {
-	ID          string          `db:"id" json:"id"`
-	ClientID    string          `db:"client_id" json:"client_id"`
-	StartTime   time.Time       `db:"start_time" json:"start_time"`
-	EndTime     sql.NullTime    `db:"end_time" json:"end_time"`
-	Description sql.NullString  `db:"description" json:"description"`
-	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate  sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
+	ID              string          `db:"id" json:"id"`
+	ClientID        string          `db:"client_id" json:"client_id"`
+	StartTime       time.Time       `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
+	Description     sql.NullString  `db:"description" json:"description"`
+	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
+	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 }

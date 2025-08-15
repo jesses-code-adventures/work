@@ -54,3 +54,17 @@ DELETE FROM sessions;
 DELETE FROM sessions
 WHERE (sqlc.narg(start_date) IS NULL OR start_time >= sqlc.narg(start_date)) 
   AND (sqlc.narg(end_date) IS NULL OR start_time <= sqlc.narg(end_date));
+-- name: GetSessionsWithoutDescription :many
+SELECT s.*, c.name as client_name
+FROM sessions s
+JOIN clients c ON s.client_id = c.id
+WHERE s.end_time IS NOT NULL 
+  AND (s.description IS NULL OR s.description = '')
+  AND (sqlc.narg(client_name) IS NULL OR c.name = sqlc.narg(client_name))
+ORDER BY s.start_time DESC;
+
+-- name: UpdateSessionDescription :one
+UPDATE sessions
+SET description = sqlc.arg(description), full_work_summary = sqlc.narg(full_work_summary)
+WHERE id = sqlc.arg(id)
+RETURNING *;

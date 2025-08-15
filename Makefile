@@ -1,4 +1,4 @@
-.PHONY: build install migrate migrate-down sqlc-gen dev test clean deps db-schema db-inspect db-stats
+.PHONY: build install migrate migrate-down sqlc-gen dev test clean deps db-schema db-inspect db-stats db-query
 
 BIN_NAME := work
 DB_FILE := $(BIN_NAME).db
@@ -116,3 +116,36 @@ db-reset:
 		sqlite3 $(DB_FILE) ".read $$f"; \
 	done
 	$(MAKE) db-schema-dump
+
+# Execute arbitrary SQL query
+# Usage: make db-query QUERY="SELECT * FROM clients"
+# Usage: make db-query QUERY="SELECT * FROM clients" FORMAT=column  (for column format)
+# Usage: make db-query QUERY="SELECT * FROM clients" FORMAT=csv     (for CSV output)
+db-query:
+ifndef QUERY
+	@echo "Usage: make db-query QUERY=\"<your SQL query>\""
+	@echo "Examples:"
+	@echo "  make db-query QUERY=\"SELECT * FROM clients\""
+	@echo "  make db-query QUERY=\"SELECT * FROM clients\" FORMAT=column"
+	@echo "  make db-query QUERY=\"SELECT * FROM clients\" FORMAT=csv"
+	@echo "  make db-query QUERY=\"SELECT name FROM clients WHERE hourly_rate > 50\""
+else
+	@if [ -f "./$(DB_FILE)" ]; then \
+		if [ "$(FORMAT)" = "column" ]; then \
+			sqlite3 $(DB_FILE) -header -column "$(QUERY)"; \
+		elif [ "$(FORMAT)" = "csv" ]; then \
+			sqlite3 $(DB_FILE) -header -csv "$(QUERY)"; \
+		else \
+			sqlite3 $(DB_FILE) "$(QUERY)"; \
+		fi \
+	else \
+		echo "Database file not found: $(DB_FILE)"; \
+	fi
+endif
+
+e2e: db-reset install
+	work create -c givetel
+	work clients update -c givetel -r 100 -d ~/coding/givetel
+	work session create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
+	work descriptions populate
+	$(MAKE) db-query QUERY="SELECT * FROM sessions WHERE client = 'givetel' ORDER BY start_time ASC"

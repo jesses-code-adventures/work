@@ -351,3 +351,178 @@ func combineRepositoryResults(clientName string, results []RepositoryResult) str
 func shellescape(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
 }
+
+// SummarizeResult contains both the final summary and full work details
+type SummarizeResult struct {
+	FinalSummary    string
+	FullWorkSummary string
+}
+
+// performSummarizeAnalysis runs the summarize analysis and returns structured results for a single client
+func performSummarizeAnalysis(ctx context.Context, timesheetService *service.TimesheetService, period string, date string, clientName string) (*SummarizeResult, error) {
+	// Default to today if no date specified
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+
+	// Parse the date
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
+	}
+
+	// Calculate date range based on period
+	fromDate, toDate := calculatePeriodRange(period, targetDate)
+
+	// Get specific client by name
+	client, err := timesheetService.GetClientByName(ctx, clientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client '%s': %w", clientName, err)
+	}
+
+	// Check if client has a directory
+	if client.Dir == nil || *client.Dir == "" {
+		return nil, fmt.Errorf("client '%s' does not have a directory configured", clientName)
+	}
+
+	// Create temp directory for storing outputs
+	tempDir, err := ioutil.TempDir("", "work-analyze-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Process the single client directory
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func(clientName, dir string) {
+		defer wg.Done()
+		processDirectory(clientName, dir, fromDate, toDate, tempDir, timesheetService)
+	}(client.Name, *client.Dir)
+
+	// Wait for processing to complete
+	wg.Wait()
+
+	// Generate brief description for the session
+	briefDescription, err := generateBriefDescription(tempDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate brief description: %w", err)
+	}
+
+	// Generate detailed full work summary
+	fullWorkSummary, err := generateDetailedSummary(tempDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate detailed summary: %w", err)
+	}
+
+	return &SummarizeResult{
+		FinalSummary:    briefDescription,
+		FullWorkSummary: fullWorkSummary,
+	}, nil
+}
+
+// generateFinalSummaryString generates final summary and returns it as string (without printing)
+func generateFinalSummaryString(tempDir string) (string, error) {
+	// Create a more specific prompt that focuses on the content of the files
+	finalPrompt := "I have individual client analysis files in this directory. Each file contains git activity analysis for a specific client and time period. Please read all the .txt files in this directory and create a single invoice description summarizing what work was done across all clients. Focus on the actual work described in the files, not on analyzing git repositories. If all files indicate no commits or no git activity, return 'NO GIT ACTIVITY'."
+
+	// Create the shell command to cd into temp directory and run opencode
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
+		shellescape(tempDir),
+		shellescape(finalPrompt)))
+
+	// Execute the command and capture output
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate final summary: %v\nOutput: %s", err, string(output))
+	}
+
+	return string(output), nil
+}
+
+// generateBriefDescription creates a concise 1-2 sentence description suitable for a line item
+func generateBriefDescription(tempDir string) (string, error) {
+	briefPrompt := "Read all .txt files in this directory and provide ONLY a single, concise line item description (maximum 1-2 sentences) of the work done. Focus on business value, not technical details. Do not show your thinking or tool usage. Output only the final description. If no work was done, respond 'No development activity'."
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
+		shellescape(tempDir),
+		shellescape(briefPrompt)))
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate brief description: %v\nOutput: %s", err, string(output))
+	}
+
+	return cleanOpenCodeOutput(string(output)), nil
+}
+
+// cleanOpenCodeOutput removes OpenCode tool invocations and ANSI codes, returning only the final content
+func cleanOpenCodeOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	var cleanLines []string
+
+	for _, line := range lines {
+		// Skip lines with ANSI color codes and tool indicators
+		if strings.Contains(line, "[0m") ||
+			strings.Contains(line, "[90m") ||
+			strings.Contains(line, "[94m") ||
+			strings.Contains(line, "[96m") ||
+			strings.Contains(line, "[91m") ||
+			strings.Contains(line, "[1m|") ||
+			strings.Contains(line, "Glob") ||
+			strings.Contains(line, "Read") ||
+			strings.Contains(line, "Bash") ||
+			strings.Contains(line, "{\"pattern\":") ||
+			strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		// Clean any remaining ANSI codes
+		cleaned := strings.ReplaceAll(line, "\033[0m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[90m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[94m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[96m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[91m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[1m", "")
+
+		if strings.TrimSpace(cleaned) != "" {
+			cleanLines = append(cleanLines, strings.TrimSpace(cleaned))
+		}
+	}
+
+	// Join and return the clean content, removing duplicates
+	result := strings.Join(cleanLines, " ")
+	result = strings.TrimSpace(result)
+
+	// Remove duplicate phrases (simple deduplication)
+	words := strings.Fields(result)
+	if len(words) > 0 {
+		// Check for repeated phrases
+		half := len(words) / 2
+		if half > 0 {
+			firstHalf := strings.Join(words[:half], " ")
+			secondHalf := strings.Join(words[half:], " ")
+			if firstHalf == secondHalf {
+				return firstHalf
+			}
+		}
+	}
+
+	return result
+}
+
+// generateDetailedSummary creates a comprehensive summary for the full work summary field
+func generateDetailedSummary(tempDir string) (string, error) {
+	detailedPrompt := "Read all .txt files in this directory and provide ONLY a comprehensive summary of all work performed. Include technical details, specific changes made, and context. Organize by repository/area if multiple areas were worked on. Do not show your thinking or tool usage. Output only the final detailed summary. If no work was done, respond 'No development activity during this period'."
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
+		shellescape(tempDir),
+		shellescape(detailedPrompt)))
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate detailed summary: %v\nOutput: %s", err, string(output))
+	}
+
+	return cleanOpenCodeOutput(string(output)), nil
+}

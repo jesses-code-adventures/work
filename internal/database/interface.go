@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/jesses-code-adventures/work/internal/models"
 )
@@ -32,10 +33,13 @@ type DB interface {
 	UpdateClient(ctx context.Context, clientID string, billing *ClientUpdateDetails) (*models.Client, error)
 
 	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate float64) (*models.WorkSession, error)
+	CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error)
 	GetActiveSession(ctx context.Context) (*models.WorkSession, error)
 	StopWorkSession(ctx context.Context, sessionID string) (*models.WorkSession, error)
 	ListRecentSessions(ctx context.Context, limit int32) ([]*models.WorkSession, error)
 	ListSessionsWithDateRange(ctx context.Context, fromDate, toDate string, limit int32) ([]*models.WorkSession, error)
+	GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error)
+	UpdateSessionDescription(ctx context.Context, sessionID string, description string, fullWorkSummary *string) (*models.WorkSession, error)
 	DeleteAllSessions(ctx context.Context) error
 	DeleteSessionsByDateRange(ctx context.Context, fromDate, toDate string) error
 }

@@ -59,6 +59,29 @@ func (s *TimesheetService) StartWork(ctx context.Context, clientName string, des
 	return session, nil
 }
 
+func (s *TimesheetService) CreateSessionWithTimes(ctx context.Context, clientName string, startTime, endTime time.Time, description *string) (*models.WorkSession, error) {
+	client, err := s.db.GetClientByName(ctx, clientName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("client '%s' does not exist", clientName)
+		}
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+
+	var hourlyRate float64
+	if client.HourlyRate > 0 {
+		hourlyRate = client.HourlyRate
+	}
+
+	session, err := s.db.CreateWorkSessionWithTimes(ctx, client.ID, startTime, endTime, description, hourlyRate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create work session: %w", err)
+	}
+
+	session.ClientName = clientName
+	return session, nil
+}
+
 func (s *TimesheetService) StopWork(ctx context.Context) (*models.WorkSession, error) {
 	activeSession, err := s.db.GetActiveSession(ctx)
 	if err != nil {
@@ -227,4 +250,12 @@ func (s *TimesheetService) formatDateForQuery(dateStr string, isStart bool) stri
 	}
 
 	return dateStr
+}
+
+func (s *TimesheetService) GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error) {
+	return s.db.GetSessionsWithoutDescription(ctx, clientName)
+}
+
+func (s *TimesheetService) UpdateSessionDescription(ctx context.Context, sessionID string, description string, fullWorkSummary *string) (*models.WorkSession, error) {
+	return s.db.UpdateSessionDescription(ctx, sessionID, description, fullWorkSummary)
 }

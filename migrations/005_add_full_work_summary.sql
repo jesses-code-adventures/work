@@ -1,0 +1,1 @@
+ALTER TABLE sessions ADD COLUMN full_work_summary TEXT;

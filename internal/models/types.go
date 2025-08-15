@@ -27,14 +27,15 @@ type Client struct {
 }
 
 type WorkSession struct {
-	ID          string     `json:"id" db:"id"`
-	ClientID    string     `json:"client_id" db:"client_id"`
-	StartTime   time.Time  `json:"start_time" db:"start_time"`
-	EndTime     *time.Time `json:"end_time,omitempty" db:"end_time"`
-	Description *string    `json:"description,omitempty" db:"description"`
-	HourlyRate  *float64   `json:"hourly_rate,omitempty" db:"hourly_rate"`
-	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	ID              string     `json:"id" db:"id"`
+	ClientID        string     `json:"client_id" db:"client_id"`
+	StartTime       time.Time  `json:"start_time" db:"start_time"`
+	EndTime         *time.Time `json:"end_time,omitempty" db:"end_time"`
+	Description     *string    `json:"description,omitempty" db:"description"`
+	HourlyRate      *float64   `json:"hourly_rate,omitempty" db:"hourly_rate"`
+	FullWorkSummary *string    `json:"full_work_summary,omitempty" db:"full_work_summary"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 
 	ClientName string `json:"client_name,omitempty" db:"client_name"`
 }

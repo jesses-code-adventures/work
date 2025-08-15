@@ -19,11 +19,13 @@ type Querier interface {
 	GetClientsWithDirectories(ctx context.Context) ([]Client, error)
 	GetSessionsByClient(ctx context.Context, clientName string) ([]GetSessionsByClientRow, error)
 	GetSessionsByDateRange(ctx context.Context, arg GetSessionsByDateRangeParams) ([]GetSessionsByDateRangeRow, error)
+	GetSessionsWithoutDescription(ctx context.Context, clientName interface{}) ([]GetSessionsWithoutDescriptionRow, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	ListRecentSessions(ctx context.Context, limitCount int64) ([]ListRecentSessionsRow, error)
 	ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error)
 	StopSession(ctx context.Context, arg StopSessionParams) (Session, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
+	UpdateSessionDescription(ctx context.Context, arg UpdateSessionDescriptionParams) (Session, error)
 }
 
 var _ Querier = (*Queries)(nil)

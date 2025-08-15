@@ -162,6 +162,54 @@ func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, descr
 	}, nil
 }
 
+func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error) {
+	var desc sql.NullString
+	if description != nil {
+		desc = sql.NullString{String: *description, Valid: true}
+	}
+
+	var rate sql.NullFloat64
+	if hourlyRate > 0 {
+		rate = sql.NullFloat64{Float64: hourlyRate, Valid: true}
+	}
+
+	session, err := s.queries.CreateSession(ctx, db.CreateSessionParams{
+		ID:          models.NewUUID(),
+		ClientID:    clientID,
+		StartTime:   startTime,
+		Description: desc,
+		HourlyRate:  rate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create work session: %w", err)
+	}
+
+	// Now update the session with the end time
+	updatedSession, err := s.queries.StopSession(ctx, db.StopSessionParams{
+		ID:      session.ID,
+		EndTime: sql.NullTime{Time: endTime, Valid: true},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set end time on session: %w", err)
+	}
+
+	var sessionRate *float64
+	if updatedSession.HourlyRate.Valid {
+		sessionRate = &updatedSession.HourlyRate.Float64
+	}
+
+	return &models.WorkSession{
+		ID:          updatedSession.ID,
+		ClientID:    updatedSession.ClientID,
+		StartTime:   updatedSession.StartTime,
+		EndTime:     nullTimeToPtr(updatedSession.EndTime),
+		Description: nullStringToPtr(updatedSession.Description),
+		HourlyRate:  sessionRate,
+		CreatedAt:   updatedSession.CreatedAt,
+		UpdatedAt:   updatedSession.UpdatedAt,
+	}, nil
+}
+
 func (s *SQLiteDB) GetActiveSession(ctx context.Context) (*models.WorkSession, error) {
 	session, err := s.queries.GetActiveSession(ctx)
 	if err != nil {
@@ -382,4 +430,67 @@ func ptrToNullString(s *string) sql.NullString {
 		return sql.NullString{String: *s, Valid: true}
 	}
 	return sql.NullString{Valid: false}
+}
+
+func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error) {
+	var name interface{}
+	if clientName != nil {
+		name = *clientName
+	}
+
+	sessions, err := s.queries.GetSessionsWithoutDescription(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions without description: %w", err)
+	}
+
+	result := make([]*models.WorkSession, len(sessions))
+	for i, session := range sessions {
+		var sessionRate *float64
+		if session.HourlyRate.Valid {
+			sessionRate = &session.HourlyRate.Float64
+		}
+
+		result[i] = &models.WorkSession{
+			ID:              session.ID,
+			ClientID:        session.ClientID,
+			StartTime:       session.StartTime,
+			EndTime:         nullTimeToPtr(session.EndTime),
+			Description:     nullStringToPtr(session.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			CreatedAt:       session.CreatedAt,
+			UpdatedAt:       session.UpdatedAt,
+			ClientName:      session.ClientName,
+		}
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) UpdateSessionDescription(ctx context.Context, sessionID string, description string, fullWorkSummary *string) (*models.WorkSession, error) {
+	session, err := s.queries.UpdateSessionDescription(ctx, db.UpdateSessionDescriptionParams{
+		ID:              sessionID,
+		Description:     sql.NullString{String: description, Valid: true},
+		FullWorkSummary: ptrToNullString(fullWorkSummary),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update session description: %w", err)
+	}
+
+	var sessionRate *float64
+	if session.HourlyRate.Valid {
+		sessionRate = &session.HourlyRate.Float64
+	}
+
+	return &models.WorkSession{
+		ID:              session.ID,
+		ClientID:        session.ClientID,
+		StartTime:       session.StartTime,
+		EndTime:         nullTimeToPtr(session.EndTime),
+		Description:     nullStringToPtr(session.Description),
+		HourlyRate:      sessionRate,
+		FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+		CreatedAt:       session.CreatedAt,
+		UpdatedAt:       session.UpdatedAt,
+	}, nil
 }
