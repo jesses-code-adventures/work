@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
@@ -160,16 +161,60 @@ func sanitizeFileName(fileName string) string {
 	return result
 }
 
+func formatClientName(name string) string {
+	// Convert snake_case to Capitalized Case With Spaces
+	words := strings.Split(name, "_")
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+func wrapDescriptionText(text string, maxChars int) []string {
+	if len(text) <= maxChars {
+		return []string{text}
+	}
+
+	words := strings.Fields(text)
+	var lines []string
+	var currentLine string
+
+	for _, word := range words {
+		testLine := currentLine
+		if testLine != "" {
+			testLine += " "
+		}
+		testLine += word
+
+		if len(testLine) <= maxChars {
+			currentLine = testLine
+		} else {
+			if currentLine != "" {
+				lines = append(lines, currentLine)
+			}
+			currentLine = word
+		}
+	}
+
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	return lines
+}
+
 func generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, timesheetService *service.TimesheetService, period string, fromDate, toDate time.Time) error {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
 
 	// Header
-	pdf.Cell(40, 10, fmt.Sprintf("Invoice - %s", client.Name))
+	pdf.Cell(40, 10, fmt.Sprintf("Invoice - %s", formatClientName(client.Name)))
 	pdf.Ln(12)
 
-	// Client billing details
+	// Client billing details in two columns
 	if client.CompanyName != nil || client.ContactName != nil {
 		pdf.SetFont("Arial", "B", 12)
 		pdf.Cell(40, 8, "Bill To:")
@@ -177,27 +222,25 @@ func generateInvoicePDF(fileName string, client *models.Client, sessions []*mode
 
 		pdf.SetFont("Arial", "", 11)
 
+		// Left column items
+		leftColY := pdf.GetY()
 		if client.CompanyName != nil {
-			pdf.Cell(40, 6, *client.CompanyName)
+			pdf.Cell(95, 6, *client.CompanyName)
 			pdf.Ln(6)
 		}
 
 		if client.ContactName != nil {
-			if client.CompanyName != nil {
-				pdf.Cell(40, 6, fmt.Sprintf("Attn: %s", *client.ContactName))
-			} else {
-				pdf.Cell(40, 6, *client.ContactName)
-			}
+			pdf.Cell(95, 6, *client.ContactName)
 			pdf.Ln(6)
 		}
 
 		if client.AddressLine1 != nil {
-			pdf.Cell(40, 6, *client.AddressLine1)
+			pdf.Cell(95, 6, *client.AddressLine1)
 			pdf.Ln(6)
 		}
 
 		if client.AddressLine2 != nil {
-			pdf.Cell(40, 6, *client.AddressLine2)
+			pdf.Cell(95, 6, *client.AddressLine2)
 			pdf.Ln(6)
 		}
 
@@ -219,51 +262,54 @@ func generateInvoicePDF(fileName string, client *models.Client, sessions []*mode
 			addressLine += *client.PostalCode
 		}
 		if addressLine != "" {
-			pdf.Cell(40, 6, addressLine)
+			pdf.Cell(95, 6, addressLine)
 			pdf.Ln(6)
 		}
 
 		if client.Country != nil {
-			pdf.Cell(40, 6, *client.Country)
+			pdf.Cell(95, 6, *client.Country)
 			pdf.Ln(6)
 		}
 
+		// Right column items
+		rightColY := leftColY
+		pdf.SetXY(105, rightColY)
+
 		if client.Email != nil {
-			pdf.Cell(40, 6, fmt.Sprintf("Email: %s", *client.Email))
-			pdf.Ln(6)
+			pdf.Cell(85, 6, fmt.Sprintf("Email: %s", *client.Email))
+			pdf.SetXY(105, pdf.GetY()+6)
 		}
 
 		if client.Phone != nil {
-			pdf.Cell(40, 6, fmt.Sprintf("Phone: %s", *client.Phone))
-			pdf.Ln(6)
+			pdf.Cell(85, 6, fmt.Sprintf("Phone: %s", *client.Phone))
+			pdf.SetXY(105, pdf.GetY()+6)
 		}
 
 		if client.TaxNumber != nil {
-			pdf.Cell(40, 6, fmt.Sprintf("Tax ID: %s", *client.TaxNumber))
-			pdf.Ln(6)
+			pdf.Cell(85, 6, fmt.Sprintf("Tax ID: %s", *client.TaxNumber))
+			pdf.SetXY(105, pdf.GetY()+6)
 		}
 
-		pdf.Ln(4) // Extra space before period info
+		// Reset to left margin and add space
+		pdf.SetX(10)
+		pdf.Ln(8)
 	}
 
 	pdf.SetFont("Arial", "", 12)
-	pdf.Cell(40, 10, fmt.Sprintf("Period: %s", period))
-	pdf.Ln(6)
 	pdf.Cell(40, 10, fmt.Sprintf("Date Range: %s to %s", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02")))
 	pdf.Ln(12)
 
-	// Table headers
-	pdf.SetFont("Arial", "B", 10)
-	pdf.CellFormat(30, 8, "Date", "1", 0, "C", false, 0, "")
-	pdf.CellFormat(20, 8, "Start", "1", 0, "C", false, 0, "")
-	pdf.CellFormat(20, 8, "End", "1", 0, "C", false, 0, "")
-	pdf.CellFormat(25, 8, "Duration", "1", 0, "C", false, 0, "")
-	pdf.CellFormat(20, 8, "Rate", "1", 0, "C", false, 0, "")
-	pdf.CellFormat(75, 8, "Description", "1", 0, "C", false, 0, "")
-	pdf.CellFormat(25, 8, "Amount", "1", 1, "C", false, 0, "")
+	// Table headers - adjusted widths to fit A4 (total ~190mm)
+	pdf.SetFont("Arial", "B", 9)
+	pdf.CellFormat(35, 8, "Start", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(35, 8, "End", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(20, 8, "Duration", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(18, 8, "Rate", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(60, 8, "Description", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(22, 8, "Amount", "1", 1, "C", false, 0, "")
 
 	// Table rows
-	pdf.SetFont("Arial", "", 9)
+	pdf.SetFont("Arial", "", 8)
 	subtotal := 0.0
 
 	for _, session := range sessions {
@@ -271,33 +317,54 @@ func generateInvoicePDF(fileName string, client *models.Client, sessions []*mode
 		amount := timesheetService.CalculateBillableAmount(session)
 		subtotal += amount
 
-		pdf.CellFormat(30, 6, session.StartTime.Format("2006-01-02"), "1", 0, "L", false, 0, "")
-		pdf.CellFormat(20, 6, session.StartTime.Format("15:04"), "1", 0, "C", false, 0, "")
-
-		endTime := ""
-		if session.EndTime != nil {
-			endTime = session.EndTime.Format("15:04")
+		// Prepare description lines with text wrapping
+		description := ""
+		if session.Description != nil {
+			description = *session.Description
 		}
-		pdf.CellFormat(20, 6, endTime, "1", 0, "C", false, 0, "")
+		descriptionLines := wrapDescriptionText(description, 28)
 
-		pdf.CellFormat(25, 6, fmt.Sprintf("%.1fh", duration.Hours()), "1", 0, "C", false, 0, "")
+		// Calculate row height based on number of description lines
+		rowHeight := float64(len(descriptionLines)) * 6
+		if rowHeight < 6 {
+			rowHeight = 6
+		}
+
+		// Start datetime with minute precision
+		startDateTime := session.StartTime.Format("2006-01-02 15:04")
+		pdf.CellFormat(35, rowHeight, startDateTime, "1", 0, "L", false, 0, "")
+
+		// End datetime with minute precision
+		endDateTime := ""
+		if session.EndTime != nil {
+			endDateTime = session.EndTime.Format("2006-01-02 15:04")
+		}
+		pdf.CellFormat(35, rowHeight, endDateTime, "1", 0, "L", false, 0, "")
+
+		pdf.CellFormat(20, rowHeight, fmt.Sprintf("%.1fh", duration.Hours()), "1", 0, "C", false, 0, "")
 
 		rate := ""
 		if session.HourlyRate != nil {
 			rate = fmt.Sprintf("$%.0f", *session.HourlyRate)
 		}
-		pdf.CellFormat(20, 6, rate, "1", 0, "C", false, 0, "")
+		pdf.CellFormat(18, rowHeight, rate, "1", 0, "C", false, 0, "")
 
-		description := ""
-		if session.Description != nil {
-			description = *session.Description
-			if len(description) > 35 {
-				description = description[:32] + "..."
-			}
+		// Handle multi-line description
+		currentX := pdf.GetX()
+		currentY := pdf.GetY()
+
+		// Draw description cell border
+		pdf.Rect(currentX, currentY, 60, rowHeight, "D")
+
+		// Write each line of description
+		for i, line := range descriptionLines {
+			pdf.SetXY(currentX+1, currentY+float64(i)*6+1)
+			pdf.Cell(58, 6, line)
 		}
-		pdf.CellFormat(75, 6, description, "1", 0, "L", false, 0, "")
 
-		pdf.CellFormat(25, 6, fmt.Sprintf("$%.2f", amount), "1", 1, "R", false, 0, "")
+		// Move to amount column
+		pdf.SetXY(currentX+60, currentY)
+		pdf.CellFormat(22, rowHeight, fmt.Sprintf("$%.2f", amount), "1", 1, "R", false, 0, "")
 	}
 
 	// Totals
@@ -305,19 +372,19 @@ func generateInvoicePDF(fileName string, client *models.Client, sessions []*mode
 	pdf.SetFont("Arial", "B", 11)
 
 	// Subtotal
-	pdf.Cell(165, 8, "Subtotal:")
-	pdf.CellFormat(25, 8, fmt.Sprintf("$%.2f", subtotal), "", 1, "R", false, 0, "")
+	pdf.Cell(168, 8, "Subtotal:")
+	pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", subtotal), "", 1, "R", false, 0, "")
 
 	// GST (10%)
 	gst := subtotal * 0.1
-	pdf.Cell(165, 8, "GST (10%):")
-	pdf.CellFormat(25, 8, fmt.Sprintf("$%.2f", gst), "", 1, "R", false, 0, "")
+	pdf.Cell(168, 8, "GST (10%):")
+	pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", gst), "", 1, "R", false, 0, "")
 
 	// Total
 	total := subtotal + gst
 	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(165, 10, "Total:")
-	pdf.CellFormat(25, 10, fmt.Sprintf("$%.2f", total), "", 1, "R", false, 0, "")
+	pdf.Cell(168, 10, "Total:")
+	pdf.CellFormat(22, 10, fmt.Sprintf("$%.2f", total), "", 1, "R", false, 0, "")
 
 	return pdf.OutputFileAndClose(fileName)
 }
