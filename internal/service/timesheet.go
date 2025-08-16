@@ -59,6 +59,40 @@ func (s *TimesheetService) StartWork(ctx context.Context, clientName string, des
 	return session, nil
 }
 
+func (s *TimesheetService) StartWorkWithTime(ctx context.Context, clientName string, startTime time.Time, description *string) (*models.WorkSession, error) {
+	activeSession, err := s.db.GetActiveSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for active session: %w", err)
+	}
+
+	if activeSession != nil {
+		fmt.Printf("Stopping current session for %s (started at %s)\n",
+			activeSession.ClientName,
+			activeSession.StartTime.Format("15:04:05"))
+
+		_, err := s.db.StopWorkSession(ctx, activeSession.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stop active session: %w", err)
+		}
+	}
+
+	client, err := s.db.GetClientByName(ctx, clientName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("client '%s' does not exist", clientName)
+		}
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+
+	session, err := s.db.CreateWorkSessionWithStartTime(ctx, client.ID, startTime, description, client.HourlyRate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create work session: %w", err)
+	}
+
+	session.ClientName = clientName
+	return session, nil
+}
+
 func (s *TimesheetService) CreateSessionWithTimes(ctx context.Context, clientName string, startTime, endTime time.Time, description *string) (*models.WorkSession, error) {
 	client, err := s.db.GetClientByName(ctx, clientName)
 	if err != nil {

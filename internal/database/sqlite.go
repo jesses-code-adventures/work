@@ -162,6 +162,45 @@ func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, descr
 	}, nil
 }
 
+func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error) {
+	var desc sql.NullString
+	if description != nil {
+		desc = sql.NullString{String: *description, Valid: true}
+	}
+
+	var rate sql.NullFloat64
+	if hourlyRate > 0 {
+		rate = sql.NullFloat64{Float64: hourlyRate, Valid: true}
+	}
+
+	session, err := s.queries.CreateSession(ctx, db.CreateSessionParams{
+		ID:          models.NewUUID(),
+		ClientID:    clientID,
+		StartTime:   startTime,
+		Description: desc,
+		HourlyRate:  rate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create work session: %w", err)
+	}
+
+	var sessionRate *float64
+	if session.HourlyRate.Valid {
+		sessionRate = &session.HourlyRate.Float64
+	}
+
+	return &models.WorkSession{
+		ID:          session.ID,
+		ClientID:    session.ClientID,
+		StartTime:   session.StartTime,
+		EndTime:     nullTimeToPtr(session.EndTime),
+		Description: nullStringToPtr(session.Description),
+		HourlyRate:  sessionRate,
+		CreatedAt:   session.CreatedAt,
+		UpdatedAt:   session.UpdatedAt,
+	}, nil
+}
+
 func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
