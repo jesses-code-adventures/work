@@ -8,7 +8,6 @@ Simple CLI time tracker for freelancers. Track work sessions across multiple cli
 
 ## Installation
 
-### Local Use Only (Single Machine)
 ```bash
 # Clone and build
 git clone <repository-url>
