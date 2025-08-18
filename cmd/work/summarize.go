@@ -490,8 +490,8 @@ func cleanOpenCodeOutput(output string) string {
 		}
 	}
 
-	// Join and return the clean content, removing duplicates
-	result := strings.Join(cleanLines, " ")
+	// Join and return the clean content, preserving line structure
+	result := strings.Join(cleanLines, "\n")
 	result = strings.TrimSpace(result)
 
 	// Remove duplicate phrases (simple deduplication)
