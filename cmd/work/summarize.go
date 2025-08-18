@@ -270,13 +270,56 @@ type RepositoryResult struct {
 }
 
 // findGitRepositories searches for .git directories in the given directory and its subdirectories
-func findGitRepositories(rootDir string) []string {
+// Uses find command with time-based filtering to only check recently modified repositories
+func findGitRepositories(root string) []string {
 	var gitRepos []string
 
-	// Walk through all subdirectories
-	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	// Use find command to locate .git directories modified in the last 7 days
+	// This is much faster than walking through all directories
+	cmd := exec.Command("find", root, "-type", "d", "-name", ".git", "-mtime", "-7", "-maxdepth", "3")
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("  Warning: find command failed, falling back to directory walk: %v\n", err)
+		return findGitRepositoriesWalk(root)
+	}
+
+	// Parse find output to get repository directories
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if line != "" {
+			// Get the parent directory (the actual repository directory)
+			repoDir := filepath.Dir(line)
+			gitRepos = append(gitRepos, repoDir)
+		}
+	}
+
+	// If no recently modified repos found, also check for repos with recent commits
+	if len(gitRepos) == 0 {
+		fmt.Printf("  No recently modified .git directories found, checking for repos with recent commits...\n")
+		gitRepos = findGitRepositoriesWithRecentCommits(root)
+	}
+
+	return gitRepos
+}
+
+// findGitRepositoriesWalk is the original implementation as fallback
+func findGitRepositoriesWalk(root string) []string {
+	var gitRepos []string
+	maxDepth := 2
+
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // Skip directories we can't access
+			return nil
+		}
+
+		rel, _ := filepath.Rel(root, path)
+		depth := len(strings.Split(rel, string(filepath.Separator)))
+
+		if depth > maxDepth {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		// Check if this is a .git directory
@@ -284,6 +327,46 @@ func findGitRepositories(rootDir string) []string {
 			// Add the parent directory (the actual repository directory)
 			repoDir := filepath.Dir(path)
 			gitRepos = append(gitRepos, repoDir)
+			return filepath.SkipDir // Don't traverse into .git directory
+		}
+
+		return nil
+	})
+
+	return gitRepos
+}
+
+// findGitRepositoriesWithRecentCommits finds git repos that have commits in the last week
+func findGitRepositoriesWithRecentCommits(root string) []string {
+	var gitRepos []string
+	maxDepth := 2
+
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		rel, _ := filepath.Rel(root, path)
+		depth := len(strings.Split(rel, string(filepath.Separator)))
+
+		if depth > maxDepth {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check if this is a .git directory
+		if info.IsDir() && info.Name() == ".git" {
+			repoDir := filepath.Dir(path)
+
+			// Check if this repo has commits in the last week
+			cmd := exec.Command("git", "-C", repoDir, "log", "--since=1 week ago", "--oneline", "-n", "1")
+			output, err := cmd.Output()
+			if err == nil && len(strings.TrimSpace(string(output))) > 0 {
+				gitRepos = append(gitRepos, repoDir)
+			}
+
 			return filepath.SkipDir // Don't traverse into .git directory
 		}
 

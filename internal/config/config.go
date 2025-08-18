@@ -31,7 +31,7 @@ func Load(dbConn, dbDriver, gitPrompt, devMode string) (*Config, error) {
 	}
 
 	if gitPrompt == "" {
-		gitPrompt = getEnv("GIT_ANALYSIS_PROMPT", "use git log to review the commits between date {from_date} and date {to_date}. create a curt list of dot points explaining what has been done in the commits. feel free to look at the diffs in the commits themselves. if there are no commits, say NO COMMITS and nothing else.")
+		gitPrompt = getEnv("GIT_ANALYSIS_PROMPT", "use git log --since=\"{from_date}\" --until=\"{to_date}\" to review the commits between date {from_date} and date {to_date}. create a curt list of dot points explaining what has been done in the commits. feel free to look at the diffs in the commits themselves if needed for clarification. if there are no commits, say NO COMMITS and nothing else.")
 	}
 
 	// Dev mode defaults to true for local builds, false for prod

@@ -176,7 +176,12 @@ endif
 
 e2e: db-reset install
 	work create -c givetel
-	work clients update -c givetel -r 100 -d ~/coding/givetel
+	work clients update -c givetel -r 100 -d "~/coding/givetel"
 	work session create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
+	work create -c personal
+	work clients update -c personal -d "~/coding/personal"
+	work session create -c personal -f "2025-08-18 18:30" -t "2025-08-19 01:30"
 	work descriptions populate
 	work list -v
+	work export -d 2025-08-15 -o givetel.csv
+	work invoices -p fortnight -d 2025-08-15
