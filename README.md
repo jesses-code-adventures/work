@@ -13,27 +13,15 @@ Simple CLI time tracker for freelancers. Track work sessions across multiple cli
 # Clone and build
 git clone <repository-url>
 cd work
+
+# If you want to be able to share sessions between machines, sign up to Turso and configure .env.mine with your database URL & turso token
+# In this case, make sure your database name is the same as the BIN_NAME in .env
+# After creating your db, run `make prod-turso-setup`
+
+# Install with sqlite on your machine
 make install
-```
 
-### Remote Database Usage (If you need to track work across multiple machines)
-```bash
-# Clone and configure
-git clone <repository-url>
-cd work
-
-# Download turso, authenticate, create a database with the name $(BIN_NAME) from the .env file
-make prod-turso-setup
-
-# Configure .env with your Turso database - you'll need to create a token and get your database URL for these steps
-echo "TURSO_TOKEN=your_turso_token_here" >> .env.mine
-echo "PROD_DATABASE_URL=libsql://your-database.turso.io" >> .env.mine
-
-# Run initial migrations - should only ever need to do this once
-make prod-init
-
-# Build and install
-make prod-install
+# Or install with turso, using `make prod-init && make prod-install`. You should only ever need to run `make prod-init` once.
 ```
 
 ## Usage
