@@ -486,7 +486,7 @@ func cleanOpenCodeOutput(output string) string {
 		cleaned = strings.ReplaceAll(cleaned, "\033[1m", "")
 
 		if strings.TrimSpace(cleaned) != "" {
-			cleanLines = append(cleanLines, strings.TrimSpace(cleaned))
+			cleanLines = append(cleanLines, strings.TrimSpace(cleaned)+"\n")
 		}
 	}
 
