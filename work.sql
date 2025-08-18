@@ -11,7 +11,7 @@ CREATE TABLE sessions (
     end_time DATETIME,
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, hourly_rate DECIMAL(10,2), full_work_summary TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, hourly_rate DECIMAL(10,2), full_work_summary TEXT, outside_git TEXT,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 CREATE INDEX idx_sessions_client_id ON sessions(client_id);

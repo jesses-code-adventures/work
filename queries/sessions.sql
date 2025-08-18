@@ -68,3 +68,15 @@ UPDATE sessions
 SET description = sqlc.arg(description), full_work_summary = sqlc.narg(full_work_summary)
 WHERE id = sqlc.arg(id)
 RETURNING *;
+
+-- name: UpdateSessionOutsideGit :one
+UPDATE sessions
+SET outside_git = sqlc.arg(outside_git)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: GetSessionByID :one
+SELECT s.*, c.name as client_name
+FROM sessions s
+JOIN clients c ON s.client_id = c.id
+WHERE s.id = sqlc.arg(id);

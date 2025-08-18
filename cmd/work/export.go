@@ -63,7 +63,7 @@ func newExportCmd(timesheetService *service.TimesheetService) *cobra.Command {
 
 			// Write CSV header
 			if err := writer.Write([]string{
-				"ID", "Client", "Start Time", "End Time", "Duration (minutes)", "Hourly Rate", "Billable Amount", "Description", "Date",
+				"ID", "Client", "Start Time", "End Time", "Duration (minutes)", "Hourly Rate", "Billable Amount", "Description", "Outside Git Notes", "Date",
 			}); err != nil {
 				return fmt.Errorf("failed to write CSV header: %w", err)
 			}
@@ -84,6 +84,11 @@ func newExportCmd(timesheetService *service.TimesheetService) *cobra.Command {
 					description = *session.Description
 				}
 
+				outsideGitNotes := ""
+				if session.OutsideGit != nil {
+					outsideGitNotes = *session.OutsideGit
+				}
+
 				hourlyRate := "0.00"
 				if session.HourlyRate != nil && *session.HourlyRate > 0 {
 					hourlyRate = fmt.Sprintf("%.2f", *session.HourlyRate)
@@ -100,6 +105,7 @@ func newExportCmd(timesheetService *service.TimesheetService) *cobra.Command {
 					hourlyRate,
 					billableAmount,
 					description,
+					outsideGitNotes,
 					session.StartTime.Format("2006-01-02"),
 				}
 

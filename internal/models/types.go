@@ -34,6 +34,7 @@ type WorkSession struct {
 	Description     *string    `json:"description,omitempty" db:"description"`
 	HourlyRate      *float64   `json:"hourly_rate,omitempty" db:"hourly_rate"`
 	FullWorkSummary *string    `json:"full_work_summary,omitempty" db:"full_work_summary"`
+	OutsideGit      *string    `json:"outside_git,omitempty" db:"outside_git"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 

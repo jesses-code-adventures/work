@@ -157,6 +157,7 @@ func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, descr
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
 		HourlyRate:  sessionRate,
+		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
@@ -196,6 +197,7 @@ func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID 
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
 		HourlyRate:  sessionRate,
+		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
@@ -244,6 +246,7 @@ func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID stri
 		EndTime:     nullTimeToPtr(updatedSession.EndTime),
 		Description: nullStringToPtr(updatedSession.Description),
 		HourlyRate:  sessionRate,
+		OutsideGit:  nullStringToPtr(updatedSession.OutsideGit),
 		CreatedAt:   updatedSession.CreatedAt,
 		UpdatedAt:   updatedSession.UpdatedAt,
 	}, nil
@@ -270,6 +273,7 @@ func (s *SQLiteDB) GetActiveSession(ctx context.Context) (*models.WorkSession, e
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
 		HourlyRate:  sessionRate,
+		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 		ClientName:  session.ClientName,
@@ -297,6 +301,7 @@ func (s *SQLiteDB) StopWorkSession(ctx context.Context, sessionID string) (*mode
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
 		HourlyRate:  sessionRate,
+		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
@@ -323,6 +328,7 @@ func (s *SQLiteDB) ListRecentSessions(ctx context.Context, limit int32) ([]*mode
 			Description:     nullStringToPtr(session.Description),
 			HourlyRate:      sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			CreatedAt:       session.CreatedAt,
 			UpdatedAt:       session.UpdatedAt,
 			ClientName:      session.ClientName,
@@ -365,6 +371,7 @@ func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDa
 			Description:     nullStringToPtr(session.Description),
 			HourlyRate:      sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			CreatedAt:       session.CreatedAt,
 			UpdatedAt:       session.UpdatedAt,
 			ClientName:      session.ClientName,
@@ -473,6 +480,30 @@ func ptrToNullString(s *string) sql.NullString {
 	return sql.NullString{Valid: false}
 }
 
+func (s *SQLiteDB) convertDBSessionToModel(session interface{}) *models.WorkSession {
+	switch dbSession := session.(type) {
+	case db.Session:
+		var sessionRate *float64
+		if dbSession.HourlyRate.Valid {
+			sessionRate = &dbSession.HourlyRate.Float64
+		}
+		return &models.WorkSession{
+			ID:              dbSession.ID,
+			ClientID:        dbSession.ClientID,
+			StartTime:       dbSession.StartTime,
+			EndTime:         nullTimeToPtr(dbSession.EndTime),
+			Description:     nullStringToPtr(dbSession.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(dbSession.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(dbSession.OutsideGit),
+			CreatedAt:       dbSession.CreatedAt,
+			UpdatedAt:       dbSession.UpdatedAt,
+		}
+	default:
+		return nil
+	}
+}
+
 func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error) {
 	var name interface{}
 	if clientName != nil {
@@ -499,6 +530,7 @@ func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName
 			Description:     nullStringToPtr(session.Description),
 			HourlyRate:      sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			CreatedAt:       session.CreatedAt,
 			UpdatedAt:       session.UpdatedAt,
 			ClientName:      session.ClientName,
@@ -531,6 +563,61 @@ func (s *SQLiteDB) UpdateSessionDescription(ctx context.Context, sessionID strin
 		Description:     nullStringToPtr(session.Description),
 		HourlyRate:      sessionRate,
 		FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+		OutsideGit:      nullStringToPtr(session.OutsideGit),
+		CreatedAt:       session.CreatedAt,
+		UpdatedAt:       session.UpdatedAt,
+	}, nil
+}
+
+func (s *SQLiteDB) GetSessionByID(ctx context.Context, sessionID string) (*models.WorkSession, error) {
+	session, err := s.queries.GetSessionByID(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session by ID: %w", err)
+	}
+
+	var sessionRate *float64
+	if session.HourlyRate.Valid {
+		sessionRate = &session.HourlyRate.Float64
+	}
+
+	return &models.WorkSession{
+		ID:              session.ID,
+		ClientID:        session.ClientID,
+		StartTime:       session.StartTime,
+		EndTime:         nullTimeToPtr(session.EndTime),
+		Description:     nullStringToPtr(session.Description),
+		HourlyRate:      sessionRate,
+		FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+		OutsideGit:      nullStringToPtr(session.OutsideGit),
+		CreatedAt:       session.CreatedAt,
+		UpdatedAt:       session.UpdatedAt,
+		ClientName:      session.ClientName,
+	}, nil
+}
+
+func (s *SQLiteDB) UpdateSessionOutsideGit(ctx context.Context, sessionID string, outsideGit string) (*models.WorkSession, error) {
+	session, err := s.queries.UpdateSessionOutsideGit(ctx, db.UpdateSessionOutsideGitParams{
+		ID:         sessionID,
+		OutsideGit: sql.NullString{String: outsideGit, Valid: true},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update session outside git: %w", err)
+	}
+
+	var sessionRate *float64
+	if session.HourlyRate.Valid {
+		sessionRate = &session.HourlyRate.Float64
+	}
+
+	return &models.WorkSession{
+		ID:              session.ID,
+		ClientID:        session.ClientID,
+		StartTime:       session.StartTime,
+		EndTime:         nullTimeToPtr(session.EndTime),
+		Description:     nullStringToPtr(session.Description),
+		HourlyRate:      sessionRate,
+		FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+		OutsideGit:      nullStringToPtr(session.OutsideGit),
 		CreatedAt:       session.CreatedAt,
 		UpdatedAt:       session.UpdatedAt,
 	}, nil

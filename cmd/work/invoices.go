@@ -322,6 +322,15 @@ func generateInvoicePDF(fileName string, client *models.Client, sessions []*mode
 		if session.Description != nil {
 			description = *session.Description
 		}
+
+		// Add outside_git notes to description
+		if session.OutsideGit != nil && *session.OutsideGit != "" {
+			if description != "" {
+				description += "\n"
+			}
+			description += *session.OutsideGit
+		}
+
 		descriptionLines := wrapDescriptionText(description, 28)
 
 		// Calculate row height based on number of description lines

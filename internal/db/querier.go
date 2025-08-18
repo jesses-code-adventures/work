@@ -17,6 +17,7 @@ type Querier interface {
 	GetClientById(ctx context.Context, id string) (Client, error)
 	GetClientByName(ctx context.Context, name string) (Client, error)
 	GetClientsWithDirectories(ctx context.Context) ([]Client, error)
+	GetSessionByID(ctx context.Context, id string) (GetSessionByIDRow, error)
 	GetSessionsByClient(ctx context.Context, clientName string) ([]GetSessionsByClientRow, error)
 	GetSessionsByDateRange(ctx context.Context, arg GetSessionsByDateRangeParams) ([]GetSessionsByDateRangeRow, error)
 	GetSessionsWithoutDescription(ctx context.Context, clientName interface{}) ([]GetSessionsWithoutDescriptionRow, error)
@@ -26,6 +27,7 @@ type Querier interface {
 	StopSession(ctx context.Context, arg StopSessionParams) (Session, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	UpdateSessionDescription(ctx context.Context, arg UpdateSessionDescriptionParams) (Session, error)
+	UpdateSessionOutsideGit(ctx context.Context, arg UpdateSessionOutsideGitParams) (Session, error)
 }
 
 var _ Querier = (*Queries)(nil)

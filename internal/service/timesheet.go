@@ -293,3 +293,25 @@ func (s *TimesheetService) GetSessionsWithoutDescription(ctx context.Context, cl
 func (s *TimesheetService) UpdateSessionDescription(ctx context.Context, sessionID string, description string, fullWorkSummary *string) (*models.WorkSession, error) {
 	return s.db.UpdateSessionDescription(ctx, sessionID, description, fullWorkSummary)
 }
+
+func (s *TimesheetService) AddSessionNote(ctx context.Context, sessionID string, note string) (*models.WorkSession, error) {
+	session, err := s.db.GetSessionByID(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+
+	var currentNotes string
+	if session.OutsideGit != nil {
+		currentNotes = *session.OutsideGit
+	}
+
+	newNote := fmt.Sprintf("• %s", note)
+	var updatedNotes string
+	if currentNotes == "" {
+		updatedNotes = newNote
+	} else {
+		updatedNotes = fmt.Sprintf("%s\n%s", currentNotes, newNote)
+	}
+
+	return s.db.UpdateSessionOutsideGit(ctx, sessionID, updatedNotes)
+}

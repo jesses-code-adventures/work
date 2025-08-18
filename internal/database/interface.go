@@ -40,7 +40,9 @@ type DB interface {
 	ListRecentSessions(ctx context.Context, limit int32) ([]*models.WorkSession, error)
 	ListSessionsWithDateRange(ctx context.Context, fromDate, toDate string, limit int32) ([]*models.WorkSession, error)
 	GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error)
+	GetSessionByID(ctx context.Context, sessionID string) (*models.WorkSession, error)
 	UpdateSessionDescription(ctx context.Context, sessionID string, description string, fullWorkSummary *string) (*models.WorkSession, error)
+	UpdateSessionOutsideGit(ctx context.Context, sessionID string, outsideGit string) (*models.WorkSession, error)
 	DeleteAllSessions(ctx context.Context) error
 	DeleteSessionsByDateRange(ctx context.Context, fromDate, toDate string) error
 }

@@ -39,4 +39,5 @@ type Session struct {
 	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
 }

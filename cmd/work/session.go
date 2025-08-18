@@ -18,6 +18,7 @@ func newSessionCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	}
 
 	cmd.AddCommand(newSessionCreateCmd(timesheetService))
+	cmd.AddCommand(newSessionNoteCmd(timesheetService))
 
 	return cmd
 }
@@ -98,6 +99,47 @@ func createSession(ctx context.Context, timesheetService *service.TimesheetServi
 }
 
 // parseTimeString parses time strings in format "YYYY-MM-DD HH:MM" or "HH:MM" (for today)
+func newSessionNoteCmd(timesheetService *service.TimesheetService) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "note <text>",
+		Short: "Add a note to the active session",
+		Long:  "Add a note to the currently active work session. Notes are stored as bullet points and included in invoices and exports.",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			note := args[0]
+			return addSessionNote(ctx, timesheetService, note)
+		},
+	}
+
+	return cmd
+}
+
+func addSessionNote(ctx context.Context, timesheetService *service.TimesheetService, note string) error {
+	activeSession, err := timesheetService.GetActiveSession(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get active session: %w", err)
+	}
+
+	if activeSession == nil {
+		return fmt.Errorf("no active session found. Start a session first with 'work start <client>'")
+	}
+
+	updatedSession, err := timesheetService.AddSessionNote(ctx, activeSession.ID, note)
+	if err != nil {
+		return fmt.Errorf("failed to add note to session: %w", err)
+	}
+
+	fmt.Printf("Added note to session for %s:\n", activeSession.ClientName)
+	fmt.Printf("• %s\n", note)
+
+	if updatedSession.OutsideGit != nil {
+		fmt.Printf("\nAll notes for this session:\n%s\n", *updatedSession.OutsideGit)
+	}
+
+	return nil
+}
+
 func parseTimeString(timeStr string) (time.Time, error) {
 	now := time.Now()
 
