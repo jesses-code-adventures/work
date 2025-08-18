@@ -131,7 +131,7 @@ func addSessionNote(ctx context.Context, timesheetService *service.TimesheetServ
 	}
 
 	fmt.Printf("Added note to session for %s:\n", activeSession.ClientName)
-	fmt.Printf("• %s\n", note)
+	fmt.Printf("- %s\n", note)
 
 	if updatedSession.OutsideGit != nil {
 		fmt.Printf("\nAll notes for this session:\n%s\n", *updatedSession.OutsideGit)

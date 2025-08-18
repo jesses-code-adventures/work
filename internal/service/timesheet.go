@@ -305,7 +305,7 @@ func (s *TimesheetService) AddSessionNote(ctx context.Context, sessionID string,
 		currentNotes = *session.OutsideGit
 	}
 
-	newNote := fmt.Sprintf("• %s", note)
+	newNote := fmt.Sprintf("- %s", note)
 	var updatedNotes string
 	if currentNotes == "" {
 		updatedNotes = newNote
