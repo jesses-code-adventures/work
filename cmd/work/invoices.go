@@ -8,6 +8,7 @@ import (
 	"github.com/jung-kurt/gofpdf"
 	"github.com/spf13/cobra"
 
+	"github.com/jesses-code-adventures/work/internal/config"
 	"github.com/jesses-code-adventures/work/internal/models"
 	"github.com/jesses-code-adventures/work/internal/service"
 )
@@ -58,7 +59,7 @@ func newInvoicesCmd(timesheetService *service.TimesheetService) *cobra.Command {
 				fileName := fmt.Sprintf("invoice_%s_%s_%s.pdf", clientName, period, date)
 				fileName = sanitizeFileName(fileName)
 
-				err = generateInvoicePDF(fileName, client, clientSessionList, timesheetService, period, fromDate, toDate)
+				err = generateInvoicePDF(fileName, client, clientSessionList, timesheetService, period, fromDate, toDate, timesheetService.Config())
 				if err != nil {
 					return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
 				}
@@ -205,7 +206,7 @@ func wrapDescriptionText(text string, maxChars int) []string {
 	return lines
 }
 
-func generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, timesheetService *service.TimesheetService, period string, fromDate, toDate time.Time) error {
+func generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, timesheetService *service.TimesheetService, period string, fromDate, toDate time.Time, cfg *config.Config) error {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
@@ -394,6 +395,22 @@ func generateInvoicePDF(fileName string, client *models.Client, sessions []*mode
 	pdf.SetFont("Arial", "B", 12)
 	pdf.Cell(168, 10, "Total:")
 	pdf.CellFormat(22, 10, fmt.Sprintf("$%.2f", total), "", 1, "R", false, 0, "")
+
+	// Payment Details
+	pdf.Ln(10)
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(40, 8, "Payment Details:")
+	pdf.Ln(10)
+
+	pdf.SetFont("Arial", "", 11)
+	pdf.Cell(40, 6, fmt.Sprintf("Bank: %s", cfg.BillingBank))
+	pdf.Ln(6)
+	pdf.Cell(40, 6, fmt.Sprintf("Account Name: %s", cfg.BillingAccountName))
+	pdf.Ln(6)
+	pdf.Cell(40, 6, fmt.Sprintf("Account Number: %s", cfg.BillingAccountNumber))
+	pdf.Ln(6)
+	pdf.Cell(40, 6, fmt.Sprintf("BSB: %s", cfg.BillingBSB))
+	pdf.Ln(6)
 
 	return pdf.OutputFileAndClose(fileName)
 }

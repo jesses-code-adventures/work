@@ -15,6 +15,10 @@ var DBConn string
 var DBDriver string
 var GitPrompt string
 var DevMode string
+var BillingBank string
+var BillingAccountName string
+var BillingAccountNumber string
+var BillingBSB string
 
 func main() {
 	if err := run(); err != nil {
@@ -25,7 +29,7 @@ func main() {
 
 // TODO: test and use this
 func runWithEmbeddedReplica() error {
-	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode)
+	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode, BillingBank, BillingAccountName, BillingAccountNumber, BillingBSB)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -52,7 +56,7 @@ func runWithEmbeddedReplica() error {
 }
 
 func run() error {
-	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode)
+	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode, BillingBank, BillingAccountName, BillingAccountNumber, BillingBSB)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
