@@ -284,8 +284,8 @@ func findGitRepositories(root string) []string {
 	}
 
 	// Parse find output to get repository directories
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(string(output)), "\n")
+	for line := range lines {
 		if line != "" {
 			// Get the parent directory (the actual repository directory)
 			repoDir := filepath.Dir(line)
