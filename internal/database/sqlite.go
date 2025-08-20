@@ -516,15 +516,20 @@ func (s *SQLiteDB) convertDBSessionToModel(session interface{}) *models.WorkSess
 	}
 }
 
-func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error) {
+func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName *string, sessionID *string) ([]*models.WorkSession, error) {
 	var name any
 	if clientName != nil {
 		name = *clientName
 	}
 
+	var id any
+	if sessionID != nil {
+		id = *sessionID
+	}
+
 	sessions, err := s.queries.GetSessionsWithoutDescription(ctx, db.GetSessionsWithoutDescriptionParams{
 		ClientName: name,
-		SessionID:  nil,
+		SessionID:  id,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sessions without description: %w", err)

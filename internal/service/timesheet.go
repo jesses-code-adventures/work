@@ -290,8 +290,12 @@ func (s *TimesheetService) formatDateForQuery(dateStr string, isStart bool) stri
 	return dateStr
 }
 
-func (s *TimesheetService) GetSessionsWithoutDescription(ctx context.Context, clientName, session *string) ([]*models.WorkSession, error) {
-	return s.db.GetSessionsWithoutDescription(ctx, clientName)
+func (s *TimesheetService) GetSessionsWithoutDescription(ctx context.Context, clientName, sessionID *string) ([]*models.WorkSession, error) {
+	return s.db.GetSessionsWithoutDescription(ctx, clientName, sessionID)
+}
+
+func (s *TimesheetService) GetSessionByID(ctx context.Context, sessionID string) (*models.WorkSession, error) {
+	return s.db.GetSessionByID(ctx, sessionID)
 }
 
 func (s *TimesheetService) UpdateSessionDescription(ctx context.Context, sessionID string, description string, fullWorkSummary *string) (*models.WorkSession, error) {

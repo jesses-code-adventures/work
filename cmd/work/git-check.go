@@ -219,7 +219,7 @@ func findGitRepositoriesDebug(root string) []string {
 
 	// Try the find command first (like the original code does)
 	fmt.Printf("Running find command...\n")
-	cmd := exec.Command("find", root, "-type", "d", "-name", ".git", "-mtime", "-7", "-maxdepth", "3")
+	cmd := exec.Command("find", root, "-type", "d", "-name", ".git", "-mtime", "-30", "-maxdepth", "3")
 	fmt.Printf("Command: %s\n", strings.Join(cmd.Args, " "))
 
 	output, err := cmd.Output()

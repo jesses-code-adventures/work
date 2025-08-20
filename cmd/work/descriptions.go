@@ -69,14 +69,35 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 
 	if session != "" {
 		// Get specific session by ID
-		sessions, err := timesheetService.GetSessionsWithoutDescription(ctx, &clientName, utils.ToPtrNil(session))
+		sessionData, err := timesheetService.GetSessionByID(ctx, session)
 		if err != nil {
 			return fmt.Errorf("failed to get session '%s': %w", session, err)
 		}
-		if len(sessions) == 0 {
+		if sessionData == nil {
 			return fmt.Errorf("session '%s' does not exist", session)
 		}
-		session = sessions[0].ID
+
+		// Get client for this session
+		client, err := timesheetService.GetClientByID(ctx, sessionData.ClientID)
+		if err != nil {
+			return fmt.Errorf("failed to get client for session '%s': %w", session, err)
+		}
+
+		// Process just this session
+		fmt.Printf("Processing 1 session for client: %s\n", client.Name)
+		var wg sync.WaitGroup
+		totalProcessed := 0
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			handleUpdateSessionDescription(ctx, timesheetService, sessionData, update)
+			totalProcessed++
+		}()
+
+		// Wait for completion and return
+		wg.Wait()
+		fmt.Printf("\nCompleted! Processed %d sessions total.\n", totalProcessed)
+		return nil
 	} else if clientName != "" {
 		// Get specific client by name
 		client, err := timesheetService.GetClientByName(ctx, clientName)
@@ -129,7 +150,7 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 				defer wg.Done()
 				handleUpdateSessionDescription(ctx, timesheetService, session, update)
 				totalProcessed++
-			}(client.Name, *client.Dir)
+			}(client.Name, strings.TrimSpace(*client.Dir))
 		}
 	}
 
@@ -171,8 +192,17 @@ func analyzeAndUpdateSession(ctx context.Context, timesheetService *service.Time
 		return nil, ErrSessionNotFinished
 	}
 
+	// Create temp directory for this session analysis
+	tempDir, err := os.MkdirTemp("", "work-analyze-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Clean up temp directory after database update
+	defer os.RemoveAll(tempDir)
+
 	// Run the summarize analysis for this specific client and time period
-	result, err := performSummarizeAnalysis(ctx, timesheetService, session.StartTime, utils.FromPtr(session.EndTime), client)
+	result, err := performSummarizeAnalysis(ctx, timesheetService, session.StartTime, utils.FromPtr(session.EndTime), client, tempDir)
 	if err != nil {
 		return nil, err
 	}
@@ -190,10 +220,10 @@ func analyzeAndUpdateSession(ctx context.Context, timesheetService *service.Time
 
 // processDirectory finds git repositories in the client directory and analyzes each one
 func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDir string, timesheetService *service.TimesheetService) error {
+	// Trim whitespace from the directory path
+	dir = strings.TrimSpace(dir)
 	fmt.Printf("Processing directory for client '%s': %s\n", clientName, dir)
 	fmt.Printf("  Date range: %s to %s\n", fromDate.Format("2006-01-02 15:04"), toDate.Format("2006-01-02 15:04"))
-
-	// Expand tilde in directory path
 	if strings.HasPrefix(dir, "~/") {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -294,9 +324,9 @@ type RepositoryResult struct {
 func findGitRepositories(root string) []string {
 	var gitRepos []string
 
-	// Use find command to locate .git directories modified in the last 7 days
+	// Use find command to locate .git directories modified in the last 30 days (expanded from 7)
 	// This is much faster than walking through all directories
-	cmd := exec.Command("find", root, "-type", "d", "-name", ".git", "-mtime", "-7", "-maxdepth", "3")
+	cmd := exec.Command("find", root, "-type", "d", "-name", ".git", "-mtime", "-30", "-maxdepth", "3")
 	output, err := cmd.Output()
 	if err != nil {
 		fmt.Printf("  Warning: find command failed, falling back to directory walk: %v\n", err)
@@ -313,11 +343,11 @@ func findGitRepositories(root string) []string {
 		}
 	}
 
-	// // If no recently modified repos found, also check for repos with recent commits
-	// if len(gitRepos) == 0 {
-	// 	fmt.Printf("  No recently modified .git directories found, checking for repos with recent commits...\n")
-	// 	gitRepos = findGitRepositoriesWithRecentCommits(root)
-	// }
+	// If no recently modified repos found, also check for repos with recent commits
+	if len(gitRepos) == 0 {
+		fmt.Printf("  No recently modified .git directories found, checking for repos with recent commits...\n")
+		gitRepos = findGitRepositoriesWithRecentCommits(root)
+	}
 
 	return gitRepos
 }
@@ -347,6 +377,46 @@ func findGitRepositoriesWalk(root string) []string {
 			// Add the parent directory (the actual repository directory)
 			repoDir := filepath.Dir(path)
 			gitRepos = append(gitRepos, repoDir)
+			return filepath.SkipDir // Don't traverse into .git directory
+		}
+
+		return nil
+	})
+
+	return gitRepos
+}
+
+// findGitRepositoriesWithRecentCommits finds git repos that have commits in the last month
+func findGitRepositoriesWithRecentCommits(root string) []string {
+	var gitRepos []string
+	maxDepth := 2
+
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		rel, _ := filepath.Rel(root, path)
+		depth := len(strings.Split(rel, string(filepath.Separator)))
+
+		if depth > maxDepth {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check if this is a .git directory
+		if info.IsDir() && info.Name() == ".git" {
+			repoDir := filepath.Dir(path)
+
+			// Check if this repo has commits in the last month
+			cmd := exec.Command("git", "-C", repoDir, "log", "--since=1 month ago", "--oneline", "-n", "1")
+			output, err := cmd.Output()
+			if err == nil && len(strings.TrimSpace(string(output))) > 0 {
+				gitRepos = append(gitRepos, repoDir)
+			}
+
 			return filepath.SkipDir // Don't traverse into .git directory
 		}
 
@@ -464,17 +534,10 @@ type SummarizeResult struct {
 }
 
 // performSummarizeAnalysis runs the summarize analysis and returns structured results for a single client
-func performSummarizeAnalysis(ctx context.Context, timesheetService *service.TimesheetService, fromDate time.Time, toDate time.Time, client *models.Client) (*SummarizeResult, error) {
+func performSummarizeAnalysis(ctx context.Context, timesheetService *service.TimesheetService, fromDate time.Time, toDate time.Time, client *models.Client, tempDir string) (*SummarizeResult, error) {
 	if client == nil || utils.FromPtr(client.Dir) == "" {
 		return nil, ErrConfiguredClientRequired
 	}
-
-	// Create temp directory for storing outputs
-	tempDir, err := os.MkdirTemp("", "work-analyze-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
 
 	// Process the single client directory
 	var wg sync.WaitGroup
