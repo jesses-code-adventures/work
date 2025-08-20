@@ -17,17 +17,13 @@ Supports hourly rate tracking and automatic billable amount calculations for fre
 	rootCmd.AddCommand(
 		newStartCmd(timesheetService),
 		newStopCmd(timesheetService),
-		newCreateCmd(timesheetService),
-		newClientsCmd(timesheetService),
-		newListCmd(timesheetService),
 		newStatusCmd(timesheetService),
-		newClearCmd(timesheetService),
-		newExportCmd(timesheetService),
-		newInvoicesCmd(timesheetService),
-		newSummarizeCmd(timesheetService),
-		newDescriptionsCmd(timesheetService),
-		newSessionCmd(timesheetService),
+		newNoteCmd(timesheetService),
 		newGitCheckCmd(timesheetService),
+		newClientsCmd(timesheetService),
+		newSessionsCmd(timesheetService),
+		newDescriptionsCmd(timesheetService),
+		newInvoicesCmd(timesheetService),
 	)
 
 	return rootCmd

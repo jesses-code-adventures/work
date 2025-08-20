@@ -25,14 +25,6 @@ make install
 
 ## Usage
 
-After installation, create a client using `work create -c clientname -r 100`, to create a client with a $100 hourly rate.
-
-The main use case is starting and stopping work sessions, using `work start -c clientname` and `work stop`. You may then use `work list` to see your logged sessions.
-
-To generate invoices for a period of time, use `work invoices -p fortnight -d 2025-08-23`, which generates an invoice per client for the specified period.
-
-For more information, use `work help` or `work help <command>`. Current output is below.
-
 ```bash
 ➜ work help
 Track your work sessions across multiple clients with simple start/stop commands.
@@ -42,17 +34,34 @@ Usage:
   work [command]
 
 Available Commands:
-  clear        Delete work sessions
-  clients      Manage clients
-  create       Create various entities
-  descriptions Manage session descriptions
-  export       Export work sessions to CSV
+  clients      Create, update and list clients
+  descriptions Manage session descriptions using git and AI summarization
   help         Help about any command
-  invoices     Generate PDF invoices for clients
-  list         List recent work sessions
-  session      Manage work sessions
+  invoices     Manage invoices for clients
+  note         Add a note to the active session
+  sessions     Manage sessions
   start        Start a work session
   status       Show current work status
   stop         Stop the current work session
-  summarize    Summarize and analyze client data
+```
+
+### Example
+
+In the below, we create a client with an hourly rate of $100, start a session, leave a note about something we did outside git, and stop the session.
+
+```bash
+➜ work clients create "My Client" -r 100
+Created client: My Client (ID: 0198c7b0-96e8-7320-848a-29b07f2d717f, Rate: $100.00/hr)
+➜ work start -c "My Client"
+Started work session for My Client at 23:36:01
+➜ work note -c "My Client" -m "Worked on architectural design for a new website"
+Added note to session for My Client:
+- Worked on architectural design for a new website
+
+All notes for this session:
+- Worked on architectural design for a new website
+➜ work stop
+Stopped work session for My Client
+Duration: 0h 2m
+Started: 23:36:01, Ended: 23:38:11
 ```

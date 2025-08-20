@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jesses-code-adventures/work/internal/database"
@@ -11,14 +12,53 @@ import (
 func newClientsCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clients",
-		Short: "Manage clients",
+		Short: "Create, update and list clients",
 		Long:  "Commands for managing clients, including listing clients and their hourly rates.",
 	}
 
+	cmd.AddCommand(newClientsCreateCmd(timesheetService))
 	cmd.AddCommand(newClientsListCmd(timesheetService))
 	cmd.AddCommand(newClientsUpdateCmd(timesheetService))
 
 	return cmd
+}
+
+func newClientsCreateCmd(timesheetService *service.TimesheetService) *cobra.Command {
+	var rate float64
+
+	cmd := &cobra.Command{
+		Use:   "create <client-name>",
+		Short: "Create a new client",
+		Long:  "Create a client with a given hourly rate",
+		Args:  cobra.MinimumNArgs(1),
+	}
+
+	cmd.Flags().Float64VarP(&rate, "rate", "r", 0.0, "Hourly rate for the client")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+
+		clientName := args[0]
+
+		switch {
+		case clientName != "":
+			return createClient(ctx, timesheetService, clientName, rate)
+		default:
+			return fmt.Errorf("must supply a client name (usage: work clients create <client-name>)")
+		}
+	}
+
+	return cmd
+}
+
+func createClient(ctx context.Context, timesheetService *service.TimesheetService, name string, rate float64) error {
+	client, err := timesheetService.CreateClient(ctx, name, rate)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Created client: %s (ID: %s, Rate: $%.2f/hr)\n", client.Name, client.ID, client.HourlyRate)
+	return nil
 }
 
 func newClientsListCmd(timesheetService *service.TimesheetService) *cobra.Command {
@@ -79,18 +119,18 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 
 			updatedClient, err := timesheetService.UpdateClient(ctx, client, &database.ClientUpdateDetails{
 				HourlyRate:   &hourlyRate,
-				CompanyName:  stringPtr(companyName),
-				ContactName:  stringPtr(contactName),
-				Email:        stringPtr(email),
-				Phone:        stringPtr(phone),
-				AddressLine1: stringPtr(addressLine1),
-				AddressLine2: stringPtr(addressLine2),
-				City:         stringPtr(city),
-				State:        stringPtr(state),
-				PostalCode:   stringPtr(postalCode),
-				Country:      stringPtr(country),
-				TaxNumber:    stringPtr(taxNumber),
-				Dir:          stringPtr(dir),
+				CompanyName:  &companyName,
+				ContactName:  &contactName,
+				Email:        &email,
+				Phone:        &phone,
+				AddressLine1: &addressLine1,
+				AddressLine2: &addressLine2,
+				City:         &city,
+				State:        &state,
+				PostalCode:   &postalCode,
+				Country:      &country,
+				TaxNumber:    &taxNumber,
+				Dir:          &dir,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to update client billing: %w", err)
@@ -120,11 +160,4 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the client")
 
 	return cmd
-}
-
-func stringPtr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }

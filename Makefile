@@ -1,4 +1,4 @@
-.PHONY: build install sqlc-gen dev test clean deps db-schema db-inspect db-stats db-query reset-and-sync
+.PHONY: build install sqlc-gen dev test integration-test clean deps db-schema db-inspect db-stats db-query reset-and-sync
 
 -include .env .env.mine
 
@@ -132,6 +132,10 @@ dev: sqlc-gen
 # Testing
 test:
 	go test ./...
+
+# Integration testing
+integration-test:
+	go test -v ./cmd/work -run TestIntegration
 
 # Clean build artifacts
 clean:
