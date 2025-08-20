@@ -1,4 +1,4 @@
-.PHONY: build install sqlc-gen dev test clean deps db-schema db-inspect db-stats db-query
+.PHONY: build install sqlc-gen dev test clean deps db-schema db-inspect db-stats db-query reset-and-sync
 
 -include .env .env.mine
 
@@ -98,7 +98,7 @@ db-inspect:
 		sqlite3 $(DB_FILE) ".tables" && \
 		echo "" && \
 		echo "=== Data Overview ===" && \
-		sqlite3 $(DB_FILE) "SELECT 'Clients: ' || COUNT(*) FROM clients; SELECT 'Sessions: ' || COUNT(*) FROM $(BIN_NAME)_sessions; SELECT 'Active Sessions: ' || COUNT(*) FROM $(BIN_NAME)_sessions WHERE end_time IS NULL;"; \
+		sqlite3 $(DB_FILE) 		"SELECT 'Clients: ' || COUNT(*) FROM clients; SELECT 'Sessions: ' || COUNT(*) FROM sessions; SELECT 'Active Sessions: ' || COUNT(*) FROM sessions WHERE end_time IS NULL;"; \
 	else \
 		echo "Database file not found"; \
 	fi
@@ -116,7 +116,7 @@ db-stats:
 			ROUND(AVG(CASE WHEN ws.end_time IS NOT NULL THEN \
 				(julianday(ws.end_time) - julianday(ws.start_time)) * 24 * 60 END), 2) as 'Avg Duration (min)' \
 		FROM clients c \
-		LEFT JOIN $(BIN_NAME)_sessions ws ON c.id = ws.client_id"; \
+		LEFT JOIN sessions ws ON c.id = ws.client_id"; \
 	else \
 		echo "Database file not found."; \
 	fi
@@ -184,6 +184,42 @@ else
 		echo "Database file not found: $(DB_FILE)"; \
 	fi
 endif
+
+reset-and-sync: check-turso-creds db-reset
+	@echo "=== Syncing clients from prod (without sensitive data) ==="
+	@turso db shell "$(PROD_DATABASE)" "SELECT id||'|'||name||'|'||created_at||'|'||updated_at||'|'||COALESCE(hourly_rate,0)||'|'||COALESCE(company_name,'')||'|'||COALESCE(contact_name,'')||'|'||COALESCE(email,'')||'|'||COALESCE(phone,'')||'|'||COALESCE(address_line1,'')||'|'||COALESCE(address_line2,'')||'|'||COALESCE(city,'')||'|'||COALESCE(state,'')||'|'||COALESCE(postal_code,'')||'|'||COALESCE(country,'')||'|'||COALESCE(tax_number,'')||'|'||COALESCE(dir,'') FROM clients;" | tail -n +2 > clients_temp.txt
+	@while IFS='|' read -r data; do \
+		[ -z "$$data" ] && continue; \
+		echo "$$data" | awk -F'|' '{ \
+			gsub(/'\''/, "'\'''\'''\''", $$2); \
+			gsub(/'\''/, "'\'''\'''\''", $$6); \
+			gsub(/'\''/, "'\'''\'''\''", $$7); \
+			gsub(/'\''/, "'\'''\'''\''", $$8); \
+			gsub(/'\''/, "'\'''\'''\''", $$9); \
+			gsub(/'\''/, "'\'''\'''\''", $$10); \
+			gsub(/'\''/, "'\'''\'''\''", $$11); \
+			gsub(/'\''/, "'\'''\'''\''", $$12); \
+			gsub(/'\''/, "'\'''\'''\''", $$13); \
+			gsub(/'\''/, "'\'''\'''\''", $$14); \
+			gsub(/'\''/, "'\'''\'''\''", $$15); \
+			gsub(/'\''/, "'\'''\'''\''", $$16); \
+			gsub(/'\''/, "'\'''\'''\''", $$17); \
+			printf "INSERT INTO clients (id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir) VALUES ('\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', %s, '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'', '\''%s'\'');\n", $$1, $$2, $$3, $$4, $$5, $$6, $$7, $$8, $$9, $$10, $$11, $$12, $$13, $$14, $$15, $$16, $$17; \
+		}' | sqlite3 $(DB_FILE) && echo "Synced client: $$(echo "$$data" | cut -d'|' -f2)" || echo "Failed to sync client"; \
+	done < clients_temp.txt
+	@rm -f clients_temp.txt
+	@echo "=== Syncing sessions from prod (without descriptions and summaries) ==="
+	@turso db shell "$(PROD_DATABASE)" "SELECT id||'|'||client_id||'|'||start_time||'|'||COALESCE(end_time,'')||'|'||created_at||'|'||updated_at||'|'||COALESCE(hourly_rate,0) FROM sessions;" | tail -n +2 > sessions_temp.txt
+	@while IFS='|' read -r data; do \
+		[ -z "$$data" ] && continue; \
+		echo "$$data" | awk -F'|' '{ \
+			end_time = ($$4 == "") ? "NULL" : "\"" $$4 "\""; \
+			printf "INSERT INTO sessions (id, client_id, start_time, end_time, created_at, updated_at, hourly_rate) VALUES (\"%s\", \"%s\", \"%s\", %s, \"%s\", \"%s\", %s);\n", $$1, $$2, $$3, end_time, $$5, $$6, $$7; \
+		}' | sqlite3 $(DB_FILE) && echo "Synced session: $$(echo "$$data" | cut -d'|' -f1)" || echo "Failed to sync session"; \
+	done < sessions_temp.txt
+	@rm -f sessions_temp.txt
+	@echo "=== Sync complete - descriptions and full_work_summary fields left empty for AI testing ==="
+	$(MAKE) db-stats
 
 e2e: db-reset install
 	work create -c givetel
