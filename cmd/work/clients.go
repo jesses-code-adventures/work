@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/jesses-code-adventures/work/internal/database"
@@ -30,7 +29,32 @@ func newClientsListCmd(timesheetService *service.TimesheetService) *cobra.Comman
 		Long:  "Display a list of all clients along with their configured hourly rates for billing.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			return listClients(ctx, timesheetService, verbose)
+			clients, err := timesheetService.ListClients(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to list clients: %w", err)
+			}
+
+			if len(clients) == 0 {
+				fmt.Println("No clients found.")
+				return nil
+			}
+
+			fmt.Println("Clients:")
+			for _, client := range clients {
+				rateStr := fmt.Sprintf("$%.2f/hr", client.HourlyRate)
+				if client.HourlyRate == 0.0 {
+					rateStr = "No rate set"
+				}
+
+				if verbose {
+					fmt.Printf("\nClient: %s (ID: %s)\n", client.Name, client.ID)
+					fmt.Printf("  Rate: %s\n", rateStr)
+					timesheetService.DisplayClient(ctx, client)
+				} else {
+					fmt.Printf("%s - %s - %s\n", client.ID, client.Name, rateStr)
+				}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed billing information")
@@ -53,7 +77,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 				return fmt.Errorf("client name is required")
 			}
 
-			return updateClient(ctx, timesheetService, client, &database.ClientUpdateDetails{
+			updatedClient, err := timesheetService.UpdateClient(ctx, client, &database.ClientUpdateDetails{
 				HourlyRate:   &hourlyRate,
 				CompanyName:  stringPtr(companyName),
 				ContactName:  stringPtr(contactName),
@@ -68,6 +92,13 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 				TaxNumber:    stringPtr(taxNumber),
 				Dir:          stringPtr(dir),
 			})
+			if err != nil {
+				return fmt.Errorf("failed to update client billing: %w", err)
+			}
+
+			fmt.Printf("Updated client '%s'\nNew state: \n", updatedClient.Name)
+			timesheetService.DisplayClient(ctx, updatedClient)
+			return nil
 		},
 	}
 
@@ -89,88 +120,6 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the client")
 
 	return cmd
-}
-
-func listClients(ctx context.Context, timesheetService *service.TimesheetService, verbose bool) error {
-	clients, err := timesheetService.ListClients(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list clients: %w", err)
-	}
-
-	if len(clients) == 0 {
-		fmt.Println("No clients found.")
-		return nil
-	}
-
-	fmt.Println("Clients:")
-	for _, client := range clients {
-		rateStr := fmt.Sprintf("$%.2f/hr", client.HourlyRate)
-		if client.HourlyRate == 0.0 {
-			rateStr = "No rate set"
-		}
-
-		if verbose {
-			fmt.Printf("\nClient: %s (ID: %s)\n", client.Name, client.ID)
-			fmt.Printf("  Rate: %s\n", rateStr)
-
-			if client.CompanyName != nil {
-				fmt.Printf("  Company: %s\n", *client.CompanyName)
-			}
-			if client.ContactName != nil {
-				fmt.Printf("  Contact: %s\n", *client.ContactName)
-			}
-			if client.Email != nil {
-				fmt.Printf("  Email: %s\n", *client.Email)
-			}
-			if client.Phone != nil {
-				fmt.Printf("  Phone: %s\n", *client.Phone)
-			}
-			if client.AddressLine1 != nil {
-				fmt.Printf("  Address: %s", *client.AddressLine1)
-				if client.AddressLine2 != nil {
-					fmt.Printf(", %s", *client.AddressLine2)
-				}
-				fmt.Printf("\n")
-			}
-			if client.City != nil || client.State != nil || client.PostalCode != nil {
-				fmt.Printf("  Location: ")
-				if client.City != nil {
-					fmt.Printf("%s", *client.City)
-				}
-				if client.State != nil {
-					fmt.Printf(", %s", *client.State)
-				}
-				if client.PostalCode != nil {
-					fmt.Printf(" %s", *client.PostalCode)
-				}
-				fmt.Printf("\n")
-			}
-			if client.Country != nil {
-				fmt.Printf("  Country: %s\n", *client.Country)
-			}
-			if client.TaxNumber != nil {
-				fmt.Printf("  Tax Number: %s\n", *client.TaxNumber)
-			}
-			if client.Dir != nil {
-				fmt.Printf("  Directory: %s\n", *client.Dir)
-			}
-		} else {
-			fmt.Printf("%s - %s - %s\n", client.ID, client.Name, rateStr)
-		}
-	}
-
-	return nil
-}
-
-func updateClient(ctx context.Context, timesheetService *service.TimesheetService, clientName string, billing *database.ClientUpdateDetails) error {
-	client, err := timesheetService.UpdateClient(ctx, clientName, billing)
-	if err != nil {
-		return fmt.Errorf("failed to update client billing: %w", err)
-	}
-
-	fmt.Printf("Updated client '%s'\nNew state: \n", client.Name)
-	timesheetService.DisplayClient(ctx, client)
-	return nil
 }
 
 func stringPtr(s string) *string {

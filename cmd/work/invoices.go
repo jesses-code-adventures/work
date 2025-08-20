@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -23,56 +24,7 @@ func newInvoicesCmd(timesheetService *service.TimesheetService) *cobra.Command {
 		Long:  "Generate PDF invoices for each client with billable hours > 0 in the specified period",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-
-			// Parse the date
-			targetDate, err := time.Parse("2006-01-02", date)
-			if err != nil {
-				return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
-			}
-
-			// Calculate date range based on period
-			fromDate, toDate := calculatePeriodRange(period, targetDate)
-
-			// Get sessions for the period
-			sessions, err := timesheetService.ListSessionsWithDateRange(ctx, fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"), 10000)
-			if err != nil {
-				return fmt.Errorf("failed to get sessions: %w", err)
-			}
-
-			// Group sessions by client and calculate totals
-			clientSessions := groupSessionsByClient(sessions)
-
-			invoiceCount := 0
-			for clientName, clientSessionList := range clientSessions {
-				total := calculateClientTotal(timesheetService, clientSessionList)
-				if total <= 0 {
-					continue // Skip clients with no billable hours
-				}
-
-				// Get client details for billing information
-				client, err := timesheetService.GetClientByName(ctx, clientName)
-				if err != nil {
-					return fmt.Errorf("failed to get client details for %s: %w", clientName, err)
-				}
-
-				// Generate PDF invoice
-				fileName := fmt.Sprintf("invoice_%s_%s_%s.pdf", clientName, period, date)
-				fileName = sanitizeFileName(fileName)
-
-				err = generateInvoicePDF(fileName, client, clientSessionList, timesheetService, period, fromDate, toDate, timesheetService.Config())
-				if err != nil {
-					return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
-				}
-
-				fmt.Printf("Generated invoice: %s (Total: $%.2f)\n", fileName, total)
-				invoiceCount++
-			}
-
-			if invoiceCount == 0 {
-				fmt.Println("No invoices generated - no clients with billable hours > 0 for the specified period")
-			}
-
-			return nil
+			return generateInvoices(ctx, timesheetService, period, date)
 		},
 	}
 
@@ -81,6 +33,58 @@ func newInvoicesCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	cmd.MarkFlagRequired("date")
 
 	return cmd
+}
+
+func generateInvoices(ctx context.Context, timesheetService *service.TimesheetService, period, date string) error {
+	// Parse the date
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
+	}
+
+	// Calculate date range based on period
+	fromDate, toDate := calculatePeriodRange(period, targetDate)
+
+	// Get sessions for the period
+	sessions, err := timesheetService.ListSessionsWithDateRange(ctx, fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"), 10000)
+	if err != nil {
+		return fmt.Errorf("failed to get sessions: %w", err)
+	}
+
+	// Group sessions by client and calculate totals
+	clientSessions := groupSessionsByClient(sessions)
+
+	invoiceCount := 0
+	for clientName, clientSessionList := range clientSessions {
+		total := calculateClientTotal(timesheetService, clientSessionList)
+		if total <= 0 {
+			continue // Skip clients with no billable hours
+		}
+
+		// Get client details for billing information
+		client, err := timesheetService.GetClientByName(ctx, clientName)
+		if err != nil {
+			return fmt.Errorf("failed to get client details for %s: %w", clientName, err)
+		}
+
+		// Generate PDF invoice
+		fileName := fmt.Sprintf("invoice_%s_%s_%s.pdf", clientName, period, date)
+		fileName = sanitizeFileName(fileName)
+
+		err = generateInvoicePDF(fileName, client, clientSessionList, timesheetService, period, fromDate, toDate, timesheetService.Config())
+		if err != nil {
+			return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
+		}
+
+		fmt.Printf("Generated invoice: %s (Total: $%.2f)\n", fileName, total)
+		invoiceCount++
+	}
+
+	if invoiceCount == 0 {
+		fmt.Println("No invoices generated - no clients with billable hours > 0 for the specified period")
+	}
+
+	return nil
 }
 
 func calculatePeriodRange(period string, targetDate time.Time) (time.Time, time.Time) {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -35,7 +34,50 @@ func newSessionCreateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 		Long:  "Create a work session for a client with specified start and end times. Times should be in format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			return createSession(ctx, timesheetService, client, fromTime, toTime, description)
+
+			// Parse the times
+			startTime, err := parseTimeString(fromTime)
+			if err != nil {
+				return fmt.Errorf("invalid start time format: %w", err)
+			}
+
+			endTime, err := parseTimeString(toTime)
+			if err != nil {
+				return fmt.Errorf("invalid end time format: %w", err)
+			}
+
+			// Validate that start time is before end time
+			if endTime.Before(startTime) || endTime.Equal(startTime) {
+				return fmt.Errorf("end time must be after start time")
+			}
+
+			// Create the session
+			var desc *string
+			if description != "" {
+				desc = &description
+			}
+
+			session, err := timesheetService.CreateSessionWithTimes(ctx, client, startTime, endTime, desc)
+			if err != nil {
+				return fmt.Errorf("failed to create session: %w", err)
+			}
+
+			// Calculate duration and billable amount
+			duration := timesheetService.CalculateDuration(session)
+			billableAmount := timesheetService.CalculateBillableAmount(session)
+
+			// Display session details
+			fmt.Printf("Created session for %s:\n", client)
+			fmt.Printf("  Start: %s\n", session.StartTime.Format("2006-01-02 15:04:05"))
+			fmt.Printf("  End: %s\n", session.EndTime.Format("2006-01-02 15:04:05"))
+			fmt.Printf("  Duration: %s\n", timesheetService.FormatDuration(duration))
+			if description != "" {
+				fmt.Printf("  Description: %s\n", description)
+			}
+			if billableAmount > 0 {
+				fmt.Printf("  Billable: %s\n", timesheetService.FormatBillableAmount(billableAmount))
+			}
+			return nil
 		},
 	}
 
@@ -51,54 +93,6 @@ func newSessionCreateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	return cmd
 }
 
-func createSession(ctx context.Context, timesheetService *service.TimesheetService, clientName, fromTime, toTime, description string) error {
-	// Parse the times
-	startTime, err := parseTimeString(fromTime)
-	if err != nil {
-		return fmt.Errorf("invalid start time format: %w", err)
-	}
-
-	endTime, err := parseTimeString(toTime)
-	if err != nil {
-		return fmt.Errorf("invalid end time format: %w", err)
-	}
-
-	// Validate that start time is before end time
-	if endTime.Before(startTime) || endTime.Equal(startTime) {
-		return fmt.Errorf("end time must be after start time")
-	}
-
-	// Create the session
-	var desc *string
-	if description != "" {
-		desc = &description
-	}
-
-	session, err := timesheetService.CreateSessionWithTimes(ctx, clientName, startTime, endTime, desc)
-	if err != nil {
-		return fmt.Errorf("failed to create session: %w", err)
-	}
-
-	// Calculate duration and billable amount
-	duration := timesheetService.CalculateDuration(session)
-	billableAmount := timesheetService.CalculateBillableAmount(session)
-
-	// Display session details
-	fmt.Printf("Created session for %s:\n", clientName)
-	fmt.Printf("  Start: %s\n", session.StartTime.Format("2006-01-02 15:04:05"))
-	fmt.Printf("  End: %s\n", session.EndTime.Format("2006-01-02 15:04:05"))
-	fmt.Printf("  Duration: %s\n", timesheetService.FormatDuration(duration))
-	if description != "" {
-		fmt.Printf("  Description: %s\n", description)
-	}
-	if billableAmount > 0 {
-		fmt.Printf("  Billable: %s\n", timesheetService.FormatBillableAmount(billableAmount))
-	}
-
-	return nil
-}
-
-// parseTimeString parses time strings in format "YYYY-MM-DD HH:MM" or "HH:MM" (for today)
 func newSessionNoteCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "note <text>",
@@ -108,36 +102,32 @@ func newSessionNoteCmd(timesheetService *service.TimesheetService) *cobra.Comman
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			note := args[0]
-			return addSessionNote(ctx, timesheetService, note)
+
+			activeSession, err := timesheetService.GetActiveSession(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get active session: %w", err)
+			}
+
+			if activeSession == nil {
+				return fmt.Errorf("no active session found. Start a session first with 'work start <client>'")
+			}
+
+			updatedSession, err := timesheetService.AddSessionNote(ctx, activeSession.ID, note)
+			if err != nil {
+				return fmt.Errorf("failed to add note to session: %w", err)
+			}
+
+			fmt.Printf("Added note to session for %s:\n", activeSession.ClientName)
+			fmt.Printf("- %s\n", note)
+
+			if updatedSession.OutsideGit != nil {
+				fmt.Printf("\nAll notes for this session:\n%s\n", *updatedSession.OutsideGit)
+			}
+			return nil
 		},
 	}
 
 	return cmd
-}
-
-func addSessionNote(ctx context.Context, timesheetService *service.TimesheetService, note string) error {
-	activeSession, err := timesheetService.GetActiveSession(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get active session: %w", err)
-	}
-
-	if activeSession == nil {
-		return fmt.Errorf("no active session found. Start a session first with 'work start <client>'")
-	}
-
-	updatedSession, err := timesheetService.AddSessionNote(ctx, activeSession.ID, note)
-	if err != nil {
-		return fmt.Errorf("failed to add note to session: %w", err)
-	}
-
-	fmt.Printf("Added note to session for %s:\n", activeSession.ClientName)
-	fmt.Printf("- %s\n", note)
-
-	if updatedSession.OutsideGit != nil {
-		fmt.Printf("\nAll notes for this session:\n%s\n", *updatedSession.OutsideGit)
-	}
-
-	return nil
 }
 
 func parseTimeString(timeStr string) (time.Time, error) {

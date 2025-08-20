@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -21,7 +20,12 @@ func newCreateCmd(timesheetService *service.TimesheetService) *cobra.Command {
 
 			switch {
 			case clientName != "":
-				return createClient(ctx, timesheetService, clientName)
+				client, err := timesheetService.CreateClient(ctx, clientName, 0.0)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Created client: %s (ID: %s, Rate: $%.2f/hr)\n", client.Name, client.ID, client.HourlyRate)
+				return nil
 			default:
 				return fmt.Errorf("must specify what to create (use -c for client)")
 			}
@@ -31,14 +35,4 @@ func newCreateCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	cmd.Flags().StringVarP(&clientName, "client", "c", "", "Create a new client")
 
 	return cmd
-}
-
-func createClient(ctx context.Context, timesheetService *service.TimesheetService, name string) error {
-	client, err := timesheetService.CreateClient(ctx, name, 0.0)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Created client: %s (ID: %s, Rate: $%.2f/hr)\n", client.Name, client.ID, client.HourlyRate)
-	return nil
 }

@@ -22,18 +22,21 @@ func newListCmd(timesheetService *service.TimesheetService) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			var sessions, err = func() ([]*models.WorkSession, error) {
-				if fromDate != "" || toDate != "" {
-					if fromDate == "" {
-						fromDate = "1900-01-01"
-					}
-					if toDate == "" {
-						toDate = "2099-12-31"
-					}
-					return timesheetService.ListSessionsWithDateRange(ctx, fromDate, toDate, limit)
+			var sessions []*models.WorkSession
+			var err error
+
+			if fromDate != "" || toDate != "" {
+				if fromDate == "" {
+					fromDate = "1900-01-01"
 				}
-				return timesheetService.ListRecentSessions(ctx, limit)
-			}()
+				if toDate == "" {
+					toDate = "2099-12-31"
+				}
+				sessions, err = timesheetService.ListSessionsWithDateRange(ctx, fromDate, toDate, limit)
+			} else {
+				sessions, err = timesheetService.ListRecentSessions(ctx, limit)
+			}
+
 			if err != nil {
 				return err
 			}
