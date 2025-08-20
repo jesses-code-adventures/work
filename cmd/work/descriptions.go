@@ -509,7 +509,9 @@ func combineRepositoryResults(clientName string, results []RepositoryResult) str
 		// Check if this repository had any commits (not just "NO COMMITS")
 		if strings.TrimSpace(result.Output) != "" && !strings.Contains(strings.ToUpper(result.Output), "NO COMMITS") {
 			combinedOutput.WriteString(fmt.Sprintf("=== %s ===\n", repoName))
-			combinedOutput.WriteString(result.Output)
+			// Clean the output before adding it to remove ANSI codes and tool invocations
+			cleanedOutput := cleanRepositoryOutput(result.Output)
+			combinedOutput.WriteString(cleanedOutput)
 			combinedOutput.WriteString("\n\n")
 			hasContent = true
 		}
@@ -520,6 +522,67 @@ func combineRepositoryResults(clientName string, results []RepositoryResult) str
 	}
 
 	return combinedOutput.String()
+}
+
+// cleanRepositoryOutput removes ANSI codes and tool invocations from repository analysis output
+func cleanRepositoryOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	var cleanLines []string
+	inToolOutput := false
+	seenLines := make(map[string]bool) // Track seen lines to remove duplicates
+
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+
+		// Skip empty lines
+		if trimmedLine == "" {
+			continue
+		}
+
+		// Detect tool output lines (they contain ANSI codes and tool indicators)
+		if strings.Contains(line, "[0m") ||
+			strings.Contains(line, "[90m") ||
+			strings.Contains(line, "[94m") ||
+			strings.Contains(line, "[96m") ||
+			strings.Contains(line, "[91m") ||
+			strings.Contains(line, "[1m|") ||
+			strings.Contains(line, "Glob") ||
+			strings.Contains(line, "Read") ||
+			strings.Contains(line, "Bash") ||
+			strings.Contains(line, "{\"pattern\":") {
+			inToolOutput = true
+			continue
+		}
+
+		// If we were in tool output and now we're not, we've found the actual content
+		if inToolOutput && !strings.Contains(line, "\033") {
+			inToolOutput = false
+		}
+
+		// Skip tool output lines
+		if inToolOutput {
+			continue
+		}
+
+		// Clean any remaining ANSI codes from the actual content
+		cleaned := strings.ReplaceAll(line, "\033[0m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[90m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[94m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[96m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[91m", "")
+		cleaned = strings.ReplaceAll(cleaned, "\033[1m", "")
+
+		// Add the cleaned line if it has content and hasn't been seen before
+		if strings.TrimSpace(cleaned) != "" {
+			if !seenLines[cleaned] {
+				cleanLines = append(cleanLines, strings.TrimSpace(cleaned))
+				seenLines[cleaned] = true
+			}
+		}
+	}
+
+	// Join and return the clean content
+	return strings.Join(cleanLines, "\n")
 }
 
 // shellescape escapes a string for safe use in shell commands
@@ -588,9 +651,17 @@ func generateBriefDescription(tempDir string) (string, error) {
 func cleanOpenCodeOutput(output string) string {
 	lines := strings.Split(output, "\n")
 	var cleanLines []string
+	inToolOutput := false
 
 	for _, line := range lines {
-		// Skip lines with ANSI color codes and tool indicators
+		trimmedLine := strings.TrimSpace(line)
+
+		// Skip empty lines
+		if trimmedLine == "" {
+			continue
+		}
+
+		// Detect tool output lines (they contain ANSI codes and tool indicators)
 		if strings.Contains(line, "[0m") ||
 			strings.Contains(line, "[90m") ||
 			strings.Contains(line, "[94m") ||
@@ -600,12 +671,22 @@ func cleanOpenCodeOutput(output string) string {
 			strings.Contains(line, "Glob") ||
 			strings.Contains(line, "Read") ||
 			strings.Contains(line, "Bash") ||
-			strings.Contains(line, "{\"pattern\":") ||
-			strings.TrimSpace(line) == "" {
+			strings.Contains(line, "{\"pattern\":") {
+			inToolOutput = true
 			continue
 		}
 
-		// Clean any remaining ANSI codes
+		// If we were in tool output and now we're not, we've found the actual content
+		if inToolOutput && !strings.Contains(line, "\033") {
+			inToolOutput = false
+		}
+
+		// Skip tool output lines
+		if inToolOutput {
+			continue
+		}
+
+		// Clean any remaining ANSI codes from the actual content
 		cleaned := strings.ReplaceAll(line, "\033[0m", "")
 		cleaned = strings.ReplaceAll(cleaned, "\033[90m", "")
 		cleaned = strings.ReplaceAll(cleaned, "\033[94m", "")
@@ -613,13 +694,14 @@ func cleanOpenCodeOutput(output string) string {
 		cleaned = strings.ReplaceAll(cleaned, "\033[91m", "")
 		cleaned = strings.ReplaceAll(cleaned, "\033[1m", "")
 
+		// Add the cleaned line if it has content
 		if strings.TrimSpace(cleaned) != "" {
-			cleanLines = append(cleanLines, strings.TrimSpace(cleaned)+"\n")
+			cleanLines = append(cleanLines, strings.TrimSpace(cleaned))
 		}
 	}
 
-	// Join and return the clean content, preserving line structure
-	result := strings.Join(cleanLines, "\n")
+	// Join and return the clean content
+	result := strings.Join(cleanLines, " ")
 	result = strings.TrimSpace(result)
 
 	// Remove duplicate phrases (simple deduplication)
@@ -641,7 +723,7 @@ func cleanOpenCodeOutput(output string) string {
 
 // generateDetailedSummary creates a comprehensive summary for the full work summary field
 func generateDetailedSummary(tempDir string) (string, error) {
-	detailedPrompt := "Read all .txt files in this directory and provide ONLY a comprehensive summary of all work performed. Include technical details, specific changes made, and context. Organize by repository/area if multiple areas were worked on. Do not show your thinking or tool usage. Output only the final detailed summary. If no work was done, respond 'No development activity during this period'."
+	detailedPrompt := "Read all .txt files in this directory and provide ONLY a comprehensive summary of all work performed. Include technical details, specific changes made, and context. Organize by repository/area if multiple areas were worked on. Do not show your thinking or tool usage. Output only the final detailed summary. IMPORTANT: If the files contain specific technical changes like database schema updates, API modifications, UI changes, or code improvements, this IS development activity and should be summarized. Only respond 'No development activity during this period' if the files are empty, or contain only 'NO COMMITS'."
 
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
 		shellescape(tempDir),
