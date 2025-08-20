@@ -103,7 +103,6 @@ func newClientsListCmd(timesheetService *service.TimesheetService) *cobra.Comman
 
 func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var hourlyRate float64
-	var client string
 	var companyName, contactName, email, phone string
 	var addressLine1, addressLine2, city, state, postalCode, country, taxNumber, dir string
 
@@ -111,38 +110,9 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 		Use:   "update",
 		Short: "Update details about a client",
 		Long:  "Update attributes of the client, such as hourly rate and billing details.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			if client == "" {
-				return fmt.Errorf("client name is required")
-			}
-
-			updatedClient, err := timesheetService.UpdateClient(ctx, client, &database.ClientUpdateDetails{
-				HourlyRate:   &hourlyRate,
-				CompanyName:  &companyName,
-				ContactName:  &contactName,
-				Email:        &email,
-				Phone:        &phone,
-				AddressLine1: &addressLine1,
-				AddressLine2: &addressLine2,
-				City:         &city,
-				State:        &state,
-				PostalCode:   &postalCode,
-				Country:      &country,
-				TaxNumber:    &taxNumber,
-				Dir:          &dir,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to update client billing: %w", err)
-			}
-
-			fmt.Printf("Updated client '%s'\nNew state: \n", updatedClient.Name)
-			timesheetService.DisplayClient(ctx, updatedClient)
-			return nil
-		},
+		Args:  cobra.MinimumNArgs(1),
 	}
 
-	cmd.Flags().StringVarP(&client, "client", "c", "", "Name of the client to update")
 	cmd.Flags().Float64VarP(&hourlyRate, "rate", "r", 0.0, "Hourly rate for the client")
 
 	// Billing detail flags
@@ -158,6 +128,37 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	cmd.Flags().StringVar(&country, "country", "", "Country")
 	cmd.Flags().StringVar(&taxNumber, "tax", "", "Tax/VAT number")
 	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the client")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		client := args[0]
+		if client == "" {
+			return fmt.Errorf("client name is required")
+		}
+
+		updatedClient, err := timesheetService.UpdateClient(ctx, client, &database.ClientUpdateDetails{
+			HourlyRate:   &hourlyRate,
+			CompanyName:  &companyName,
+			ContactName:  &contactName,
+			Email:        &email,
+			Phone:        &phone,
+			AddressLine1: &addressLine1,
+			AddressLine2: &addressLine2,
+			City:         &city,
+			State:        &state,
+			PostalCode:   &postalCode,
+			Country:      &country,
+			TaxNumber:    &taxNumber,
+			Dir:          &dir,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update client billing: %w", err)
+		}
+
+		fmt.Printf("Updated client '%s'\nNew state: \n", updatedClient.Name)
+		timesheetService.DisplayClient(ctx, updatedClient)
+		return nil
+	}
 
 	return cmd
 }

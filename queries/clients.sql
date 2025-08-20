@@ -7,7 +7,7 @@ RETURNING *;
 SELECT * FROM clients
 WHERE name = sqlc.arg(name);
 
--- name: GetClientById :one
+-- name: GetClientByID :one
 SELECT * FROM clients
 WHERE id = sqlc.arg(id);
 

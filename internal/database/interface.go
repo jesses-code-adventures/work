@@ -28,6 +28,7 @@ type DB interface {
 
 	CreateClient(ctx context.Context, name string, hourlyRate float64) (*models.Client, error)
 	GetClientByName(ctx context.Context, name string) (*models.Client, error)
+	GetClientByID(ctx context.Context, ID string) (*models.Client, error)
 	ListClients(ctx context.Context) ([]*models.Client, error)
 	GetClientsWithDirectories(ctx context.Context) ([]*models.Client, error)
 	UpdateClient(ctx context.Context, clientID string, billing *ClientUpdateDetails) (*models.Client, error)

@@ -450,6 +450,8 @@ func newSessionsCsvCmd(timesheetService *service.TimesheetService) *cobra.Comman
 	var fromDate, toDate string
 	var output string
 	var limit int32
+	var period string
+	var date string
 
 	cmd := &cobra.Command{
 		Use:   "export",
@@ -458,10 +460,21 @@ func newSessionsCsvCmd(timesheetService *service.TimesheetService) *cobra.Comman
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
+			if fromDate == "" && toDate == "" && period != "" && date != "" {
+				var d time.Time
+				if date != "" {
+					d, _ = time.Parse("2006-01-02", date)
+				}
+				fromDateTime, toDateTime := calculatePeriodRange(period, d)
+				fromDate = fromDateTime.Format("2006-01-02")
+				toDate = toDateTime.Format("2006-01-02")
+			}
 			return exportSessions(ctx, timesheetService, fromDate, toDate, limit, output)
 		},
 	}
 
+	cmd.Flags().StringVarP(&period, "period", "p", "week", "Period type: day, week, fortnight, month")
+	cmd.Flags().StringVarP(&date, "date", "d", "date", "If using period, the date in the period (YYYY-MM-DD)")
 	cmd.Flags().StringVarP(&fromDate, "from", "f", "", "Export sessions from this date (YYYY-MM-DD)")
 	cmd.Flags().StringVarP(&toDate, "to", "t", "", "Export sessions to this date (YYYY-MM-DD)")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file (default: stdout)")

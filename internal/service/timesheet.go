@@ -184,6 +184,10 @@ func (s *TimesheetService) GetClientByName(ctx context.Context, name string) (*m
 	return s.db.GetClientByName(ctx, name)
 }
 
+func (s *TimesheetService) GetClientByID(ctx context.Context, ID string) (*models.Client, error) {
+	return s.db.GetClientByID(ctx, ID)
+}
+
 func (s *TimesheetService) UpdateClient(ctx context.Context, clientName string, updates *database.ClientUpdateDetails) (*models.Client, error) {
 	c, err := s.db.GetClientByName(ctx, clientName)
 	if err != nil {
@@ -286,7 +290,7 @@ func (s *TimesheetService) formatDateForQuery(dateStr string, isStart bool) stri
 	return dateStr
 }
 
-func (s *TimesheetService) GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error) {
+func (s *TimesheetService) GetSessionsWithoutDescription(ctx context.Context, clientName, session *string) ([]*models.WorkSession, error) {
 	return s.db.GetSessionsWithoutDescription(ctx, clientName)
 }
 

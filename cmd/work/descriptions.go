@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,11 @@ import (
 	"github.com/jesses-code-adventures/work/internal/models"
 	"github.com/jesses-code-adventures/work/internal/service"
 	"github.com/jesses-code-adventures/work/internal/utils"
+)
+
+var (
+	ErrSessionNotFinished       = errors.New("session is not finished")
+	ErrConfiguredClientRequired = errors.New("client with a configured dir is required")
 )
 
 func newDescriptionsCmd(timesheetService *service.TimesheetService) *cobra.Command {
@@ -33,6 +39,7 @@ func newDescriptionsGenerateCmd(timesheetService *service.TimesheetService) *cob
 	var client string
 	var period string
 	var date string
+	var session string
 
 	cmd := &cobra.Command{
 		Use:   "generate",
@@ -43,25 +50,34 @@ func newDescriptionsGenerateCmd(timesheetService *service.TimesheetService) *cob
 	cmd.Flags().StringVarP(&client, "client", "c", "", "Process only the specified client (optional)")
 	cmd.Flags().StringVarP(&period, "period", "p", "week", "Period type: day, week, fortnight, month")
 	cmd.Flags().StringVarP(&date, "date", "d", "", "Date in the period (YYYY-MM-DD)")
+	cmd.Flags().StringVarP(&session, "session", "s", "", "The ID of the session to analyze")
 	update := cmd.Flags().BoolP("update", "u", false, "Update the session descriptions in the database")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		if utils.FromPtr(update) {
-			return populateDescriptions(ctx, timesheetService, client)
-		}
-		return summarizeDescriptions(ctx, timesheetService, period, date, client)
+		return populateDescriptions(ctx, timesheetService, client, session, utils.FromPtr(update))
+		// return summarizeDescriptions(ctx, timesheetService, period, date, client, session)
 	}
 
 	return cmd
 }
 
-func populateDescriptions(ctx context.Context, timesheetService *service.TimesheetService, clientName string) error {
+func populateDescriptions(ctx context.Context, timesheetService *service.TimesheetService, clientName, session string, update bool) error {
 	// Get clients with directories
 	var clients []*models.Client
 	var err error
 
-	if clientName != "" {
+	if session != "" {
+		// Get specific session by ID
+		sessions, err := timesheetService.GetSessionsWithoutDescription(ctx, &clientName, utils.ToPtrNil(session))
+		if err != nil {
+			return fmt.Errorf("failed to get session '%s': %w", session, err)
+		}
+		if len(sessions) == 0 {
+			return fmt.Errorf("session '%s' does not exist", session)
+		}
+		session = sessions[0].ID
+	} else if clientName != "" {
 		// Get specific client by name
 		client, err := timesheetService.GetClientByName(ctx, clientName)
 		if err != nil {
@@ -74,7 +90,6 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 		}
 
 		clients = []*models.Client{client}
-		fmt.Printf("Processing single client: %s\n", clientName)
 	} else {
 		// Get all clients that have directories
 		clients, err = timesheetService.GetClientsWithDirectories(ctx)
@@ -90,10 +105,12 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 
 	fmt.Printf("Found %d clients with directories\n", len(clients))
 
+	// Process directories concurrently
+	var wg sync.WaitGroup
 	// For each client, get sessions without descriptions
 	totalProcessed := 0
 	for _, client := range clients {
-		sessions, err := timesheetService.GetSessionsWithoutDescription(ctx, &client.Name)
+		sessions, err := timesheetService.GetSessionsWithoutDescription(ctx, &client.Name, utils.ToPtrNil(session))
 		if err != nil {
 			fmt.Printf("Error getting sessions for client %s: %v\n", client.Name, err)
 			continue
@@ -107,185 +124,94 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 		fmt.Printf("Processing %d sessions for client: %s\n", len(sessions), client.Name)
 
 		for _, session := range sessions {
-			if session.EndTime == nil {
-				fmt.Printf("  Skipping active session %s (not ended)\n", session.ID)
-				continue
-			}
-
-			fmt.Printf("  Processing session %s (%s to %s)\n",
-				session.ID,
-				session.StartTime.Format("2006-01-02 15:04"),
-				session.EndTime.Format("2006-01-02 15:04"))
-
-			// Run summarize analysis for this session's time period
-			err := analyzeAndUpdateSession(ctx, timesheetService, client, session)
-			if err != nil {
-				fmt.Printf("    Error analyzing session: %v\n", err)
-				continue
-			}
-
-			totalProcessed++
-			fmt.Printf("    Successfully updated session description\n")
-		}
-	}
-
-	fmt.Printf("\nCompleted! Processed %d sessions total.\n", totalProcessed)
-	return nil
-}
-
-func analyzeAndUpdateSession(ctx context.Context, timesheetService *service.TimesheetService, client *models.Client, session *models.WorkSession) error {
-	// Calculate the period as "day" and use the session start date
-	period := "day"
-	date := session.StartTime.Format("2006-01-02")
-
-	// Run the summarize analysis for this specific client and time period
-	result, err := performSummarizeAnalysis(ctx, timesheetService, period, date, client.Name)
-	if err != nil {
-		return fmt.Errorf("failed to perform analysis: %w", err)
-	}
-
-	// Update the session with the results
-	_, err = timesheetService.UpdateSessionDescription(ctx, session.ID, result.FinalSummary, &result.FullWorkSummary)
-	if err != nil {
-		return fmt.Errorf("failed to update session: %w", err)
-	}
-
-	return nil
-}
-
-func summarizeDescriptions(ctx context.Context, timesheetService *service.TimesheetService, period string, date string, clientName string) error {
-	// Default to today if no date specified
-	if date == "" {
-		date = time.Now().Format("2006-01-02")
-	}
-
-	// Parse the date
-	targetDate, err := time.Parse("2006-01-02", date)
-	if err != nil {
-		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
-	}
-
-	// Calculate date range based on period
-	fromDate, toDate := calculatePeriodRange(period, targetDate)
-
-	// Get clients that have directories
-	var clients []*models.Client
-
-	if clientName != "" {
-		// Get specific client by name
-		client, err := timesheetService.GetClientByName(ctx, clientName)
-		if err != nil {
-			return fmt.Errorf("failed to get client '%s': %w", clientName, err)
-		}
-
-		// Check if client has a directory
-		if client.Dir == nil || *client.Dir == "" {
-			return fmt.Errorf("client '%s' does not have a directory configured", clientName)
-		}
-
-		clients = []*models.Client{client}
-		fmt.Printf("Processing single client: %s\n", clientName)
-	} else {
-		// Get all clients that have directories
-		var err error
-		clients, err = timesheetService.GetClientsWithDirectories(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get clients with directories: %w", err)
-		}
-
-		if len(clients) == 0 {
-			fmt.Println("No clients with directories found.")
-			return nil
-		}
-	}
-
-	fmt.Printf("Found %d clients with directories for period: %s %s\n", len(clients), period, date)
-	fmt.Printf("Date range: %s to %s\n", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
-
-	// Create temp directory for storing outputs
-	var tempDir string
-
-	if timesheetService.Config().DevMode {
-		// In dev mode, create a local directory that persists
-		tempDir = "./work-summarize-temp"
-		err := os.MkdirAll(tempDir, 0755)
-		if err != nil {
-			return fmt.Errorf("failed to create dev temp directory: %w", err)
-		}
-		// Clean up existing files but keep directory
-		files, _ := filepath.Glob(filepath.Join(tempDir, "*.txt"))
-		for _, file := range files {
-			os.Remove(file)
-		}
-		fmt.Printf("Using persistent temp directory (dev mode): %s\n", tempDir)
-	} else {
-		// In prod mode, use system temp directory
-		var err error
-		tempDir, err = os.MkdirTemp("", "work-summarize-*")
-		if err != nil {
-			return fmt.Errorf("failed to create temp directory: %w", err)
-		}
-		defer os.RemoveAll(tempDir)
-		fmt.Printf("Using temp directory: %s\n", tempDir)
-	}
-
-	// Process directories concurrently
-	var wg sync.WaitGroup
-	for _, client := range clients {
-		if client.Dir != nil {
 			wg.Add(1)
 			go func(clientName, dir string) {
 				defer wg.Done()
-				processDirectory(clientName, dir, fromDate, toDate, tempDir, timesheetService)
+				handleUpdateSessionDescription(ctx, timesheetService, session, update)
+				totalProcessed++
 			}(client.Name, *client.Dir)
 		}
 	}
 
 	// Wait for all goroutines to complete
 	wg.Wait()
-	fmt.Println("All directories processed.")
 
-	// Final summarization step
-	err = generateFinalSummary(tempDir)
-	if err != nil {
-		return fmt.Errorf("failed to generate final summary: %w", err)
-	}
-
+	fmt.Printf("\nCompleted! Processed %d sessions total.\n", totalProcessed)
 	return nil
 }
 
+func handleUpdateSessionDescription(ctx context.Context, timesheetService *service.TimesheetService, session *models.WorkSession, update bool) (*SummarizeResult, error) {
+	if session.EndTime == nil {
+		fmt.Printf("  Skipping active session %s (not ended)\n", session.ID)
+		return nil, ErrSessionNotFinished
+	}
+
+	fmt.Printf("  Processing session %s (%s to %s)\n",
+		session.ID,
+		session.StartTime.Format("2006-01-02 15:04"),
+		session.EndTime.Format("2006-01-02 15:04"))
+
+	client, err := timesheetService.GetClientByID(ctx, session.ClientID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Run summarize analysis for this session's time period
+	result, err := analyzeAndUpdateSession(ctx, timesheetService, client, session, update)
+	if err != nil {
+		fmt.Printf("    Error analyzing session: %v\n", err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func analyzeAndUpdateSession(ctx context.Context, timesheetService *service.TimesheetService, client *models.Client, session *models.WorkSession, update bool) (*SummarizeResult, error) {
+	if session.EndTime == nil {
+		return nil, ErrSessionNotFinished
+	}
+
+	// Run the summarize analysis for this specific client and time period
+	result, err := performSummarizeAnalysis(ctx, timesheetService, session.StartTime, utils.FromPtr(session.EndTime), client)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update the session with the results
+	if update {
+		_, err = timesheetService.UpdateSessionDescription(ctx, session.ID, result.FinalSummary, &result.FullWorkSummary)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
 // processDirectory finds git repositories in the client directory and analyzes each one
-func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDir string, timesheetService *service.TimesheetService) {
+func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDir string, timesheetService *service.TimesheetService) error {
 	fmt.Printf("Processing directory for client '%s': %s\n", clientName, dir)
-	fmt.Printf("  Date range: %s to %s\n", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
+	fmt.Printf("  Date range: %s to %s\n", fromDate.Format("2006-01-02 15:04"), toDate.Format("2006-01-02 15:04"))
 
 	// Expand tilde in directory path
 	if strings.HasPrefix(dir, "~/") {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Printf("  Error getting home directory: %v\n", err)
-			return
+			return fmt.Errorf("  Error getting home directory: %v\n", err)
 		}
 		dir = filepath.Join(homeDir, dir[2:])
 	}
 
 	// Check if directory exists
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		fmt.Printf("  Directory does not exist: %s\n", dir)
-		// Write "NO GIT ACTIVITY" to output file for missing directories
-		outputFile := filepath.Join(tempDir, sanitizeClientName(clientName)+".txt")
-		os.WriteFile(outputFile, []byte("NO GIT ACTIVITY"), 0644)
-		return
+		return fmt.Errorf("directory does not exist: %s", dir)
 	}
 
 	// Find all git repositories in subdirectories
 	gitRepos := findGitRepositories(dir)
 
 	if len(gitRepos) == 0 {
-		fmt.Printf("  No git repositories found in %s\n", dir)
-		outputFile := filepath.Join(tempDir, sanitizeClientName(clientName)+".txt")
-		os.WriteFile(outputFile, []byte("NO COMMITS"), 0644)
-		return
+		return fmt.Errorf("no git repositories found in %s", dir)
 	}
 
 	fmt.Printf("  Found %d git repositories: %v\n", len(gitRepos), gitRepos)
@@ -317,42 +243,34 @@ func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDi
 
 	// Combine results into a single output
 	combinedOutput := combineRepositoryResults(clientName, allResults)
+	fmt.Printf("Output for %s:\n\n%s\n", clientName, combinedOutput)
 
 	// Write combined output to file
 	outputFile := filepath.Join(tempDir, sanitizeClientName(clientName)+".txt")
 	err := os.WriteFile(outputFile, []byte(combinedOutput), 0644)
 	if err != nil {
-		fmt.Printf("  Error writing output file for %s: %v\n", clientName, err)
-		return
+		return fmt.Errorf("  Error writing output file for %s: %v\n", clientName, err)
 	}
-
-	fmt.Printf("  Analysis complete for %s, output written to %s\n", clientName, outputFile)
+	return nil
 }
 
 // generateFinalSummary processes all individual client analyses and generates a final summary
-func generateFinalSummary(tempDir string) error {
-	fmt.Println("Generating final summary...")
-
-	// Create a more specific prompt that focuses on the content of the files
-	finalPrompt := "I have individual client analysis files in this directory. Each file contains git activity analysis for a specific client and time period. Please read all the .txt files in this directory and create a single invoice description summarizing what work was done across all clients. Focus on the actual work described in the files, not on analyzing git repositories. If all files indicate no commits or no git activity, return 'NO GIT ACTIVITY'."
-
-	// Create the shell command to cd into temp directory and run opencode
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
-		shellescape(tempDir),
-		shellescape(finalPrompt)))
-
-	// Execute the command and capture output
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to generate final summary: %v\nOutput: %s", err, string(output))
-	}
-
-	fmt.Println("\n=== FINAL SUMMARY ===")
-	fmt.Printf("%s\n", string(output))
-	fmt.Println("===================")
-
-	return nil
-}
+// func generateFinalSummary(tempDir string) (string, error) {
+// 	fmt.Println("Generating final summary...")
+//
+// 	finalPrompt := "I have individual client analysis files in this directory. Each file contains git activity analysis for a specific client and time period. Please read all the .txt files in this directory and create a single invoice description summarizing what work was done across all clients. Focus on the actual work described in the files, not on analyzing git repositories. If all files indicate no commits or no git activity, return 'NO GIT ACTIVITY'."
+//
+// 	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
+// 		shellescape(tempDir),
+// 		shellescape(finalPrompt)))
+//
+// 	output, err := cmd.CombinedOutput()
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to generate final summary: %v\nOutput: %s", err, string(output))
+// 	}
+//
+// 	return string(output), nil
+// }
 
 // sanitizeClientName creates a safe filename from client name
 func sanitizeClientName(clientName string) string {
@@ -386,8 +304,8 @@ func findGitRepositories(root string) []string {
 	}
 
 	// Parse find output to get repository directories
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(string(output)), "\n")
+	for line := range lines {
 		if line != "" {
 			// Get the parent directory (the actual repository directory)
 			repoDir := filepath.Dir(line)
@@ -395,11 +313,11 @@ func findGitRepositories(root string) []string {
 		}
 	}
 
-	// If no recently modified repos found, also check for repos with recent commits
-	if len(gitRepos) == 0 {
-		fmt.Printf("  No recently modified .git directories found, checking for repos with recent commits...\n")
-		gitRepos = findGitRepositoriesWithRecentCommits(root)
-	}
+	// // If no recently modified repos found, also check for repos with recent commits
+	// if len(gitRepos) == 0 {
+	// 	fmt.Printf("  No recently modified .git directories found, checking for repos with recent commits...\n")
+	// 	gitRepos = findGitRepositoriesWithRecentCommits(root)
+	// }
 
 	return gitRepos
 }
@@ -438,51 +356,53 @@ func findGitRepositoriesWalk(root string) []string {
 	return gitRepos
 }
 
-// findGitRepositoriesWithRecentCommits finds git repos that have commits in the last week
-func findGitRepositoriesWithRecentCommits(root string) []string {
-	var gitRepos []string
-	maxDepth := 2
-
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		rel, _ := filepath.Rel(root, path)
-		depth := len(strings.Split(rel, string(filepath.Separator)))
-
-		if depth > maxDepth {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Check if this is a .git directory
-		if info.IsDir() && info.Name() == ".git" {
-			repoDir := filepath.Dir(path)
-
-			// Check if this repo has commits in the last week
-			cmd := exec.Command("git", "-C", repoDir, "log", "--since=1 week ago", "--oneline", "-n", "1")
-			output, err := cmd.Output()
-			if err == nil && len(strings.TrimSpace(string(output))) > 0 {
-				gitRepos = append(gitRepos, repoDir)
-			}
-
-			return filepath.SkipDir // Don't traverse into .git directory
-		}
-
-		return nil
-	})
-
-	return gitRepos
-}
+// // findGitRepositoriesWithRecentCommits finds git repos that have commits in the last week
+//
+//	func findGitRepositoriesWithRecentCommits(root string) []string {
+//		var gitRepos []string
+//		maxDepth := 2
+//
+//		filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+//			if err != nil {
+//				return nil
+//			}
+//
+//			rel, _ := filepath.Rel(root, path)
+//			depth := len(strings.Split(rel, string(filepath.Separator)))
+//
+//			if depth > maxDepth {
+//				if info.IsDir() {
+//					return filepath.SkipDir
+//				}
+//				return nil
+//			}
+//
+//			// Check if this is a .git directory
+//			if info.IsDir() && info.Name() == ".git" {
+//				repoDir := filepath.Dir(path)
+//
+//				// Check if this repo has commits in the last week
+//				cmd := exec.Command("git", "-C", repoDir, "log", "--since=1 week ago", "--oneline", "-n", "1")
+//				output, err := cmd.Output()
+//				if err == nil && len(strings.TrimSpace(string(output))) > 0 {
+//					gitRepos = append(gitRepos, repoDir)
+//				}
+//
+//				return filepath.SkipDir // Don't traverse into .git directory
+//			}
+//
+//			return nil
+//		})
+//
+//		return gitRepos
+//	}
+//
 
 // analyzeGitRepository runs git analysis on a single repository
 func analyzeGitRepository(repoDir string, fromDate, toDate time.Time, timesheetService *service.TimesheetService) RepositoryResult {
 	// Create prompt with actual dates
-	prompt := strings.ReplaceAll(timesheetService.Config().GitAnalysisPrompt, "{from_date}", fromDate.Format("2006-01-02"))
-	prompt = strings.ReplaceAll(prompt, "{to_date}", toDate.Format("2006-01-02"))
+	prompt := strings.ReplaceAll(timesheetService.Config().GitAnalysisPrompt, "{from_date}", fromDate.Format("2006-01-02 15:04"))
+	prompt = strings.ReplaceAll(prompt, "{to_date}", toDate.Format("2006-01-02 15:04"))
 
 	// Create the shell command to cd into repository directory and run opencode
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
@@ -544,30 +464,9 @@ type SummarizeResult struct {
 }
 
 // performSummarizeAnalysis runs the summarize analysis and returns structured results for a single client
-func performSummarizeAnalysis(ctx context.Context, timesheetService *service.TimesheetService, period string, date string, clientName string) (*SummarizeResult, error) {
-	// Default to today if no date specified
-	if date == "" {
-		date = time.Now().Format("2006-01-02")
-	}
-
-	// Parse the date
-	targetDate, err := time.Parse("2006-01-02", date)
-	if err != nil {
-		return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
-	}
-
-	// Calculate date range based on period
-	fromDate, toDate := calculatePeriodRange(period, targetDate)
-
-	// Get specific client by name
-	client, err := timesheetService.GetClientByName(ctx, clientName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client '%s': %w", clientName, err)
-	}
-
-	// Check if client has a directory
-	if client.Dir == nil || *client.Dir == "" {
-		return nil, fmt.Errorf("client '%s' does not have a directory configured", clientName)
+func performSummarizeAnalysis(ctx context.Context, timesheetService *service.TimesheetService, fromDate time.Time, toDate time.Time, client *models.Client) (*SummarizeResult, error) {
+	if client == nil || utils.FromPtr(client.Dir) == "" {
+		return nil, ErrConfiguredClientRequired
 	}
 
 	// Create temp directory for storing outputs
@@ -604,25 +503,6 @@ func performSummarizeAnalysis(ctx context.Context, timesheetService *service.Tim
 		FinalSummary:    briefDescription,
 		FullWorkSummary: fullWorkSummary,
 	}, nil
-}
-
-// generateFinalSummaryString generates final summary and returns it as string (without printing)
-func generateFinalSummaryString(tempDir string) (string, error) {
-	// Create a more specific prompt that focuses on the content of the files
-	finalPrompt := "I have individual client analysis files in this directory. Each file contains git activity analysis for a specific client and time period. Please read all the .txt files in this directory and create a single invoice description summarizing what work was done across all clients. Focus on the actual work described in the files, not on analyzing git repositories. If all files indicate no commits or no git activity, return 'NO GIT ACTIVITY'."
-
-	// Create the shell command to cd into temp directory and run opencode
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
-		shellescape(tempDir),
-		shellescape(finalPrompt)))
-
-	// Execute the command and capture output
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("failed to generate final summary: %v\nOutput: %s", err, string(output))
-	}
-
-	return string(output), nil
 }
 
 // generateBriefDescription creates a concise 1-2 sentence description suitable for a line item

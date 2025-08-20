@@ -95,6 +95,18 @@ func (s *SQLiteDB) GetClientByName(ctx context.Context, name string) (*models.Cl
 	return s.convertDBClientToModel(client), nil
 }
 
+func (s *SQLiteDB) GetClientByID(ctx context.Context, ID string) (*models.Client, error) {
+	client, err := s.queries.GetClientByID(ctx, ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, sql.ErrNoRows
+		}
+		return nil, fmt.Errorf("failed to get client by ID: %w", err)
+	}
+
+	return s.convertDBClientToModel(client), nil
+}
+
 func (s *SQLiteDB) ListClients(ctx context.Context) ([]*models.Client, error) {
 	clients, err := s.queries.ListClients(ctx)
 	if err != nil {
@@ -505,12 +517,15 @@ func (s *SQLiteDB) convertDBSessionToModel(session interface{}) *models.WorkSess
 }
 
 func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName *string) ([]*models.WorkSession, error) {
-	var name interface{}
+	var name any
 	if clientName != nil {
 		name = *clientName
 	}
 
-	sessions, err := s.queries.GetSessionsWithoutDescription(ctx, name)
+	sessions, err := s.queries.GetSessionsWithoutDescription(ctx, db.GetSessionsWithoutDescriptionParams{
+		ClientName: name,
+		SessionID:  nil,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sessions without description: %w", err)
 	}

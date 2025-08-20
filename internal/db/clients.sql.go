@@ -75,13 +75,13 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) (Cli
 	return i, err
 }
 
-const getClientById = `-- name: GetClientById :one
+const getClientByID = `-- name: GetClientByID :one
 SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir FROM clients
 WHERE id = ?1
 `
 
-func (q *Queries) GetClientById(ctx context.Context, id string) (Client, error) {
-	row := q.db.QueryRowContext(ctx, getClientById, id)
+func (q *Queries) GetClientByID(ctx context.Context, id string) (Client, error) {
+	row := q.db.QueryRowContext(ctx, getClientByID, id)
 	var i Client
 	err := row.Scan(
 		&i.ID,

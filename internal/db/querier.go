@@ -14,13 +14,13 @@ type Querier interface {
 	DeleteAllSessions(ctx context.Context) error
 	DeleteSessionsByDateRange(ctx context.Context, arg DeleteSessionsByDateRangeParams) error
 	GetActiveSession(ctx context.Context) (GetActiveSessionRow, error)
-	GetClientById(ctx context.Context, id string) (Client, error)
+	GetClientByID(ctx context.Context, id string) (Client, error)
 	GetClientByName(ctx context.Context, name string) (Client, error)
 	GetClientsWithDirectories(ctx context.Context) ([]Client, error)
 	GetSessionByID(ctx context.Context, id string) (GetSessionByIDRow, error)
 	GetSessionsByClient(ctx context.Context, clientName string) ([]GetSessionsByClientRow, error)
 	GetSessionsByDateRange(ctx context.Context, arg GetSessionsByDateRangeParams) ([]GetSessionsByDateRangeRow, error)
-	GetSessionsWithoutDescription(ctx context.Context, clientName interface{}) ([]GetSessionsWithoutDescriptionRow, error)
+	GetSessionsWithoutDescription(ctx context.Context, arg GetSessionsWithoutDescriptionParams) ([]GetSessionsWithoutDescriptionRow, error)
 	ListClients(ctx context.Context) ([]Client, error)
 	ListRecentSessions(ctx context.Context, limitCount int64) ([]ListRecentSessionsRow, error)
 	ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error)

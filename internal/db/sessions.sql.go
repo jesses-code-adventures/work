@@ -276,14 +276,20 @@ func (q *Queries) GetSessionsByDateRange(ctx context.Context, arg GetSessionsByD
 }
 
 const getSessionsWithoutDescription = `-- name: GetSessionsWithoutDescription :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
-FROM sessions s
-JOIN clients c ON s.client_id = c.id
-WHERE s.end_time IS NOT NULL 
-  AND (s.description IS NULL OR s.description = '')
-  AND (?1 IS NULL OR c.name = ?1)
-ORDER BY s.start_time DESC
+select s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+from sessions s
+join clients c on s.client_id = c.id
+where s.end_time is not null 
+  and (s.description is null or s.description = '')
+  and (?1 is null or c.name = ?1)
+  and (?2 is null or s.id = ?2)
+order by s.start_time desc
 `
+
+type GetSessionsWithoutDescriptionParams struct {
+	ClientName interface{} `db:"client_name" json:"client_name"`
+	SessionID  interface{} `db:"session_id" json:"session_id"`
+}
 
 type GetSessionsWithoutDescriptionRow struct {
 	ID              string          `db:"id" json:"id"`
@@ -299,8 +305,8 @@ type GetSessionsWithoutDescriptionRow struct {
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
-func (q *Queries) GetSessionsWithoutDescription(ctx context.Context, clientName interface{}) ([]GetSessionsWithoutDescriptionRow, error) {
-	rows, err := q.db.QueryContext(ctx, getSessionsWithoutDescription, clientName)
+func (q *Queries) GetSessionsWithoutDescription(ctx context.Context, arg GetSessionsWithoutDescriptionParams) ([]GetSessionsWithoutDescriptionRow, error) {
+	rows, err := q.db.QueryContext(ctx, getSessionsWithoutDescription, arg.ClientName, arg.SessionID)
 	if err != nil {
 		return nil, err
 	}

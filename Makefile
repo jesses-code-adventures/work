@@ -225,14 +225,20 @@ reset-and-sync: check-turso-creds db-reset
 	@echo "=== Sync complete - descriptions and full_work_summary fields left empty for AI testing ==="
 	$(MAKE) db-stats
 
-e2e: db-reset install
-	work create -c givetel
-	work clients update -c givetel -r 100 -d "~/coding/givetel"
-	work session create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
-	work create -c personal
-	work clients update -c personal -d "~/coding/personal"
-	work session create -c personal -f "2025-08-18 18:30" -t "2025-08-19 01:30"
-	work descriptions populate
-	work list -v
-	work export -d 2025-08-15 -o givetel.csv
-	work invoices -p fortnight -d 2025-08-15
+e2e-setup:
+	work clients create givetel
+	work clients update givetel -r 100 -d "~/coding/givetel"
+	work sessions create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
+	work clients create personal
+	work clients update personal -d "~/coding/personal"
+	work sessions create -c personal -f "2025-08-18 18:30" -t "2025-08-19 01:30"
+
+e2e-test:
+	work descriptions generate -u -c givetel
+	work sessions list -v
+	work sessions export -d 2025-08-15 -o givetel.csv
+	work invoices generate -p fortnight -d 2025-08-15
+
+e2e: db-reset install e2e-setup e2e-test
+
+e2e-sync: reset-and-sync install e2e-test

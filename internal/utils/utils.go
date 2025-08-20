@@ -11,3 +11,10 @@ func FromPtr[T any](t *T) T {
 	}
 	return *t
 }
+
+func ToPtrNil(t string) *string {
+	if t == "" {
+		return nil
+	}
+	return &t
+}
