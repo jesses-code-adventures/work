@@ -118,12 +118,8 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 }
 
 func analyzeAndUpdateSession(ctx context.Context, timesheetService *service.TimesheetService, client *models.Client, session *models.WorkSession) error {
-	// Calculate the period as "day" and use the session start date
-	period := "day"
-	date := session.StartTime.Format("2006-01-02")
-
-	// Run the summarize analysis for this specific client and time period
-	result, err := performSummarizeAnalysis(ctx, timesheetService, period, date, client.Name)
+	// Use the actual session start and end times for precise git analysis
+	result, err := performSummarizeAnalysisWithSessionTimes(ctx, timesheetService, client.Name, session.StartTime, *session.EndTime)
 	if err != nil {
 		return fmt.Errorf("failed to perform analysis: %w", err)
 	}

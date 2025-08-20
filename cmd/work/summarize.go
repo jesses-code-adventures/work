@@ -154,6 +154,9 @@ func summarizeDescriptions(ctx context.Context, timesheetService *service.Timesh
 
 // processDirectory finds git repositories in the client directory and analyzes each one
 func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDir string, timesheetService *service.TimesheetService) {
+	// Trim whitespace from directory path (fixes issue with padded database fields)
+	dir = strings.TrimSpace(dir)
+
 	fmt.Printf("Processing directory for client '%s': %s\n", clientName, dir)
 	fmt.Printf("  Date range: %s to %s\n", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
 
@@ -504,6 +507,55 @@ func performSummarizeAnalysis(ctx context.Context, timesheetService *service.Tim
 	}, nil
 }
 
+// performSummarizeAnalysisWithSessionTimes runs the summarize analysis with exact session start and end times
+func performSummarizeAnalysisWithSessionTimes(ctx context.Context, timesheetService *service.TimesheetService, clientName string, startTime, endTime time.Time) (*SummarizeResult, error) {
+	// Get specific client by name
+	client, err := timesheetService.GetClientByName(ctx, clientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client '%s': %w", clientName, err)
+	}
+
+	// Check if client has a directory
+	if client.Dir == nil || *client.Dir == "" {
+		return nil, fmt.Errorf("client '%s' does not have a directory configured", clientName)
+	}
+
+	// Create temp directory for storing outputs
+	tempDir, err := os.MkdirTemp("", "work-analyze-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Process the single client directory with exact session times
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func(clientName, dir string) {
+		defer wg.Done()
+		processDirectoryWithSessionTimes(clientName, dir, startTime, endTime, tempDir, timesheetService)
+	}(client.Name, *client.Dir)
+
+	// Wait for processing to complete
+	wg.Wait()
+
+	// Generate brief description for the session
+	briefDescription, err := generateBriefDescription(tempDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate brief description: %w", err)
+	}
+
+	// Generate detailed full work summary
+	fullWorkSummary, err := generateDetailedSummary(tempDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate detailed summary: %w", err)
+	}
+
+	return &SummarizeResult{
+		FinalSummary:    briefDescription,
+		FullWorkSummary: fullWorkSummary,
+	}, nil
+}
+
 // generateFinalSummaryString generates final summary and returns it as string (without printing)
 func generateFinalSummaryString(tempDir string) (string, error) {
 	// Create a more specific prompt that focuses on the content of the files
@@ -608,4 +660,107 @@ func generateDetailedSummary(tempDir string) (string, error) {
 	}
 
 	return cleanOpenCodeOutput(string(output)), nil
+}
+
+// analyzeGitRepositoryWithSessionTimes runs git analysis on a single repository with exact session times
+func analyzeGitRepositoryWithSessionTimes(repoDir string, fromTime, toTime time.Time, timesheetService *service.TimesheetService) RepositoryResult {
+	// Format times for git log
+	fromDateTime := fromTime.Format("2006-01-02 15:04")
+	toDateTime := toTime.Format("2006-01-02 15:04")
+
+	// Create prompt with actual date/times
+	prompt := strings.ReplaceAll(timesheetService.Config().GitAnalysisPrompt, "{from_date}", fromDateTime)
+	prompt = strings.ReplaceAll(prompt, "{to_date}", toDateTime)
+
+	// Create the shell command to cd into repository directory and run opencode
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
+		shellescape(repoDir),
+		shellescape(prompt)))
+
+	// Execute the command and capture output
+	output, err := cmd.CombinedOutput()
+
+	return RepositoryResult{
+		RepoPath: repoDir,
+		Output:   string(output),
+		Error:    err,
+	}
+}
+
+// processDirectoryWithSessionTimes finds git repositories and analyzes each one with exact session times
+func processDirectoryWithSessionTimes(clientName, dir string, fromTime, toTime time.Time, tempDir string, timesheetService *service.TimesheetService) {
+	fmt.Printf("Processing directory for client '%s': %s\n", clientName, dir)
+	fmt.Printf("  Time range: %s to %s\n", fromTime.Format("2006-01-02 15:04"), toTime.Format("2006-01-02 15:04"))
+
+	// Trim whitespace from directory path (fixes issue with padded database fields)
+	dir = strings.TrimSpace(dir)
+
+	// Expand tilde in directory path
+	if strings.HasPrefix(dir, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			fmt.Printf("  Error getting home directory: %v\n", err)
+			return
+		}
+		dir = filepath.Join(homeDir, dir[2:])
+	}
+
+	// Check if directory exists
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		fmt.Printf("  Directory does not exist: %s\n", dir)
+		// Write "NO GIT ACTIVITY" to output file for missing directories
+		outputFile := filepath.Join(tempDir, sanitizeClientName(clientName)+".txt")
+		os.WriteFile(outputFile, []byte("NO GIT ACTIVITY"), 0644)
+		return
+	}
+
+	// Find all git repositories in subdirectories
+	gitRepos := findGitRepositories(dir)
+
+	if len(gitRepos) == 0 {
+		fmt.Printf("  No git repositories found in %s\n", dir)
+		outputFile := filepath.Join(tempDir, sanitizeClientName(clientName)+".txt")
+		os.WriteFile(outputFile, []byte("NO COMMITS"), 0644)
+		return
+	}
+
+	fmt.Printf("  Found %d git repositories: %v\n", len(gitRepos), gitRepos)
+
+	// Process each git repository in parallel
+	var wg sync.WaitGroup
+	results := make(chan RepositoryResult, len(gitRepos))
+
+	for _, repoDir := range gitRepos {
+		wg.Add(1)
+		go func(repoPath string) {
+			defer wg.Done()
+			result := analyzeGitRepositoryWithSessionTimes(repoPath, fromTime, toTime, timesheetService)
+			results <- result
+		}(repoDir)
+	}
+
+	// Wait for all repositories to be processed
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect all results
+	var allResults []RepositoryResult
+	for result := range results {
+		allResults = append(allResults, result)
+	}
+
+	// Combine results into a single output
+	combinedOutput := combineRepositoryResults(clientName, allResults)
+
+	// Write combined output to file
+	outputFile := filepath.Join(tempDir, sanitizeClientName(clientName)+".txt")
+	err := os.WriteFile(outputFile, []byte(combinedOutput), 0644)
+	if err != nil {
+		fmt.Printf("  Error writing output file for %s: %v\n", clientName, err)
+		return
+	}
+
+	fmt.Printf("  Analysis complete for %s, output written to %s\n", clientName, outputFile)
 }

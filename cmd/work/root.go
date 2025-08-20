@@ -27,6 +27,7 @@ Supports hourly rate tracking and automatic billable amount calculations for fre
 		newSummarizeCmd(timesheetService),
 		newDescriptionsCmd(timesheetService),
 		newSessionCmd(timesheetService),
+		newGitCheckCmd(timesheetService),
 	)
 
 	return rootCmd
