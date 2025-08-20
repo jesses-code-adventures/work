@@ -149,6 +149,10 @@ func (s *TimesheetService) ListSessionsWithDateRange(ctx context.Context, fromDa
 	return s.db.ListSessionsWithDateRange(ctx, from, to, limit)
 }
 
+func (s *TimesheetService) ListSessionsByClient(ctx context.Context, clientName string, limit int32) ([]*models.WorkSession, error) {
+	return s.db.ListSessionsByClient(ctx, clientName, limit)
+}
+
 func (s *TimesheetService) DeleteAllSessions(ctx context.Context) error {
 	return s.db.DeleteAllSessions(ctx)
 }

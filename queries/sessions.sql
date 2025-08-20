@@ -44,6 +44,7 @@ FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE (sqlc.narg(start_date) IS NULL OR s.start_time >= sqlc.narg(start_date)) 
   AND (sqlc.narg(end_date) IS NULL OR s.start_time <= sqlc.narg(end_date))
+  AND (sqlc.narg(client_name) IS NULL OR c.name = sqlc.narg(client_name))
 ORDER BY s.start_time DESC
 LIMIT sqlc.arg(limit_count);
 

@@ -403,13 +403,15 @@ FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE (?1 IS NULL OR s.start_time >= ?1) 
   AND (?2 IS NULL OR s.start_time <= ?2)
+  AND (?3 IS NULL OR c.name = ?3)
 ORDER BY s.start_time DESC
-LIMIT ?3
+LIMIT ?4
 `
 
 type ListSessionsWithDateRangeParams struct {
 	StartDate  interface{} `db:"start_date" json:"start_date"`
 	EndDate    interface{} `db:"end_date" json:"end_date"`
+	ClientName interface{} `db:"client_name" json:"client_name"`
 	LimitCount int64       `db:"limit_count" json:"limit_count"`
 }
 
@@ -428,7 +430,12 @@ type ListSessionsWithDateRangeRow struct {
 }
 
 func (q *Queries) ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionsWithDateRange, arg.StartDate, arg.EndDate, arg.LimitCount)
+	rows, err := q.db.QueryContext(ctx, listSessionsWithDateRange,
+		arg.StartDate,
+		arg.EndDate,
+		arg.ClientName,
+		arg.LimitCount,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -77,14 +77,6 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 			return fmt.Errorf("session '%s' does not exist", session)
 		}
 
-		// Get client for this session
-		client, err := timesheetService.GetClientByID(ctx, sessionData.ClientID)
-		if err != nil {
-			return fmt.Errorf("failed to get client for session '%s': %w", session, err)
-		}
-
-		// Process just this session
-		fmt.Printf("Processing 1 session for client: %s\n", client.Name)
 		var wg sync.WaitGroup
 		totalProcessed := 0
 		wg.Add(1)
@@ -96,7 +88,6 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 
 		// Wait for completion and return
 		wg.Wait()
-		fmt.Printf("\nCompleted! Processed %d sessions total.\n", totalProcessed)
 		return nil
 	} else if clientName != "" {
 		// Get specific client by name
@@ -124,8 +115,6 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 		}
 	}
 
-	fmt.Printf("Found %d clients with directories\n", len(clients))
-
 	// Process directories concurrently
 	var wg sync.WaitGroup
 	// For each client, get sessions without descriptions
@@ -142,8 +131,6 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 			continue
 		}
 
-		fmt.Printf("Processing %d sessions for client: %s\n", len(sessions), client.Name)
-
 		for _, session := range sessions {
 			wg.Add(1)
 			go func(clientName, dir string) {
@@ -157,7 +144,6 @@ func populateDescriptions(ctx context.Context, timesheetService *service.Timeshe
 	// Wait for all goroutines to complete
 	wg.Wait()
 
-	fmt.Printf("\nCompleted! Processed %d sessions total.\n", totalProcessed)
 	return nil
 }
 
@@ -222,8 +208,6 @@ func analyzeAndUpdateSession(ctx context.Context, timesheetService *service.Time
 func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDir string, timesheetService *service.TimesheetService) error {
 	// Trim whitespace from the directory path
 	dir = strings.TrimSpace(dir)
-	fmt.Printf("Processing directory for client '%s': %s\n", clientName, dir)
-	fmt.Printf("  Date range: %s to %s\n", fromDate.Format("2006-01-02 15:04"), toDate.Format("2006-01-02 15:04"))
 	if strings.HasPrefix(dir, "~/") {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -243,8 +227,6 @@ func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDi
 	if len(gitRepos) == 0 {
 		return fmt.Errorf("no git repositories found in %s", dir)
 	}
-
-	fmt.Printf("  Found %d git repositories: %v\n", len(gitRepos), gitRepos)
 
 	// Process each git repository in parallel
 	var wg sync.WaitGroup
@@ -273,10 +255,9 @@ func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDi
 
 	// Combine results into a single output
 	combinedOutput := combineRepositoryResults(clientName, allResults)
-	fmt.Printf("Output for %s:\n\n%s\n", clientName, combinedOutput)
 
 	// Write combined output to file
-	outputFile := filepath.Join(tempDir, sanitizeClientName(clientName)+".txt")
+	outputFile := filepath.Join(tempDir, sanitizeClientName(clientName, fromDate, toDate)+".txt")
 	err := os.WriteFile(outputFile, []byte(combinedOutput), 0644)
 	if err != nil {
 		return fmt.Errorf("  Error writing output file for %s: %v\n", clientName, err)
@@ -284,31 +265,14 @@ func processDirectory(clientName, dir string, fromDate, toDate time.Time, tempDi
 	return nil
 }
 
-// generateFinalSummary processes all individual client analyses and generates a final summary
-// func generateFinalSummary(tempDir string) (string, error) {
-// 	fmt.Println("Generating final summary...")
-//
-// 	finalPrompt := "I have individual client analysis files in this directory. Each file contains git activity analysis for a specific client and time period. Please read all the .txt files in this directory and create a single invoice description summarizing what work was done across all clients. Focus on the actual work described in the files, not on analyzing git repositories. If all files indicate no commits or no git activity, return 'NO GIT ACTIVITY'."
-//
-// 	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd %s && echo %s | opencode run",
-// 		shellescape(tempDir),
-// 		shellescape(finalPrompt)))
-//
-// 	output, err := cmd.CombinedOutput()
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to generate final summary: %v\nOutput: %s", err, string(output))
-// 	}
-//
-// 	return string(output), nil
-// }
-
 // sanitizeClientName creates a safe filename from client name
-func sanitizeClientName(clientName string) string {
+func sanitizeClientName(clientName string, fromDate, toDate time.Time) string {
 	// Replace spaces and special characters with underscores
 	result := strings.ReplaceAll(clientName, " ", "_")
 	result = strings.ReplaceAll(result, "/", "_")
 	result = strings.ReplaceAll(result, "\\", "_")
 	result = strings.ReplaceAll(result, ":", "_")
+	result = fmt.Sprintf("%s_%s_%s", result, fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
 	return result
 }
 

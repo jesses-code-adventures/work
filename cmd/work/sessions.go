@@ -123,22 +123,27 @@ func newSessionsListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 	var limit int32
 	var fromDate, toDate string
 	var verbose bool
+	var client string
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List work sessions",
-		Long:  "Show a list of work sessions with durations and billable amounts. Filter by date range using -f and -t flags. Use -v for verbose output including full work summaries.",
+		Long:  "Show a list of work sessions with durations and billable amounts. Filter by date range using -f and -t flags, or by client using -c flag. Use -v for verbose output including full work summaries.",
 	}
 
 	cmd.Flags().Int32VarP(&limit, "limit", "l", 10, "Number of sessions to show")
 	cmd.Flags().StringVarP(&fromDate, "from", "f", "", "Show sessions from this date (YYYY-MM-DD)")
 	cmd.Flags().StringVarP(&toDate, "to", "t", "", "Show sessions to this date (YYYY-MM-DD)")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show full work summaries")
+	cmd.Flags().StringVarP(&client, "client", "c", "", "Filter sessions by client name")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
 		var sessions, err = func() ([]*models.WorkSession, error) {
+			if client != "" {
+				return timesheetService.ListSessionsByClient(ctx, client, limit)
+			}
 			if fromDate != "" || toDate != "" {
 				if fromDate == "" {
 					fromDate = "1900-01-01"
@@ -155,7 +160,11 @@ func newSessionsListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 		}
 
 		if len(sessions) == 0 {
-			fmt.Println("No work sessions found.")
+			if client != "" {
+				fmt.Printf("No work sessions found for client '%s'.\n", client)
+			} else {
+				fmt.Println("No work sessions found.")
+			}
 			return nil
 		}
 

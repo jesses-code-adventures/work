@@ -362,10 +362,47 @@ func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDa
 	sessions, err := s.queries.ListSessionsWithDateRange(ctx, db.ListSessionsWithDateRangeParams{
 		StartDate:  startDate,
 		EndDate:    endDate,
+		ClientName: nil, // No client filtering in this method
 		LimitCount: int64(limit),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions with date range: %w", err)
+	}
+
+	result := make([]*models.WorkSession, len(sessions))
+	for i, session := range sessions {
+		var sessionRate *float64
+		if session.HourlyRate.Valid {
+			sessionRate = &session.HourlyRate.Float64
+		}
+
+		result[i] = &models.WorkSession{
+			ID:              session.ID,
+			ClientID:        session.ClientID,
+			StartTime:       session.StartTime,
+			EndTime:         nullTimeToPtr(session.EndTime),
+			Description:     nullStringToPtr(session.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(session.OutsideGit),
+			CreatedAt:       session.CreatedAt,
+			UpdatedAt:       session.UpdatedAt,
+			ClientName:      session.ClientName,
+		}
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) ListSessionsByClient(ctx context.Context, clientName string, limit int32) ([]*models.WorkSession, error) {
+	sessions, err := s.queries.ListSessionsWithDateRange(ctx, db.ListSessionsWithDateRangeParams{
+		StartDate:  nil,
+		EndDate:    nil,
+		ClientName: clientName,
+		LimitCount: int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions by client: %w", err)
 	}
 
 	result := make([]*models.WorkSession, len(sessions))
