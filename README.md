@@ -4,7 +4,7 @@ Who needs interns when we have clankers to do our bidding?
 
 Simple CLI time tracker for freelancers. Track work sessions across multiple clients with automatic billing calculations, PDF invoice generation, and AI-powered work summaries.
 
-**Dependencies:** Requires [OpenCode](https://github.com/sst/opencode) for `summarize` and `descriptions populate` commands that analyze local git repositories to generate work summaries per-client. Requires your own [Turso](https://turso.tech/) sqlite database if you want to share sessions between machines.
+**Dependencies:** Requires [OpenCode](https://github.com/sst/opencode) for `descriptions generate` that analyzes local git repositories to generate session invoice descriptions per-client. Requires your own [Turso](https://turso.tech/) sqlite database if you want to share sessions between machines.
 
 ## Installation
 
