@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jesses-code-adventures/work/internal/config"
 	"github.com/jesses-code-adventures/work/internal/database"
@@ -166,7 +167,35 @@ func TestIntegrationWorkCommands(t *testing.T) {
 		// Create a temporary CSV file
 		csvFile := filepath.Join(tempDir, "test_export.csv")
 
+		// Clear all sessions
+		err := timesheetService.DeleteAllSessions(ctx)
+		if err != nil {
+			t.Fatalf("Failed to delete all sessions: %v", err)
+		}
+
 		output := captureOutput(func() {
+			rootCmd.SetArgs([]string{"sessions", "export", "-o", csvFile})
+			err := rootCmd.ExecuteContext(ctx)
+			if err != nil {
+				t.Errorf("Work sessions csv command failed: %v", err)
+			}
+		})
+
+		if !strings.Contains(output, "No sessions found to export") {
+			t.Errorf("Expected 'No sessions found to export' in output, got: %s", output)
+		}
+
+		if _, err := os.Stat(csvFile); err == nil {
+			t.Errorf("CSV file was created and should not have been")
+		}
+
+		// Create a new session
+		_, err = timesheetService.CreateSessionWithTimes(ctx, "test-client", time.Now(), time.Now(), nil)
+		if err != nil {
+			t.Fatalf("Failed to create session: %v", err)
+		}
+
+		output = captureOutput(func() {
 			rootCmd.SetArgs([]string{"sessions", "export", "-o", csvFile})
 			err := rootCmd.ExecuteContext(ctx)
 			if err != nil {
@@ -200,7 +229,7 @@ func TestIntegrationWorkCommands(t *testing.T) {
 
 	t.Run("Work Clients Update", func(t *testing.T) {
 		output := captureOutput(func() {
-			rootCmd.SetArgs([]string{"clients", "update", "-c", "new-client", "-r", "80.0"})
+			rootCmd.SetArgs([]string{"clients", "update", "new-client", "-r", "80.0"})
 			err := rootCmd.ExecuteContext(ctx)
 			if err != nil {
 				t.Errorf("Work clients update command failed: %v", err)

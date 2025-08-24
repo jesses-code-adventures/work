@@ -37,6 +37,7 @@ Available Commands:
   clients      Create, update and list clients
   descriptions Manage session descriptions using git and AI summarization
   help         Help about any command
+  hours        Display total worked hours
   invoices     Manage invoices for clients
   note         Add a note to the active session
   sessions     Manage sessions

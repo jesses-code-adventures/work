@@ -41,53 +41,6 @@ func newSessionsCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 		Use:   "create",
 		Short: "Create a work session with custom start and end times",
 		Long:  "Create a work session for a client with specified start and end times. Times should be in format 'YYYY-MM-DD HH:MM' or 'HH:MM' for today.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			// Parse the times
-			startTime, err := parseTimeString(fromTime)
-			if err != nil {
-				return fmt.Errorf("invalid start time format: %w", err)
-			}
-
-			endTime, err := parseTimeString(toTime)
-			if err != nil {
-				return fmt.Errorf("invalid end time format: %w", err)
-			}
-
-			// Validate that start time is before end time
-			if endTime.Before(startTime) || endTime.Equal(startTime) {
-				return fmt.Errorf("end time must be after start time")
-			}
-
-			// Create the session
-			var desc *string
-			if description != "" {
-				desc = &description
-			}
-
-			session, err := timesheetService.CreateSessionWithTimes(ctx, client, startTime, endTime, desc)
-			if err != nil {
-				return fmt.Errorf("failed to create session: %w", err)
-			}
-
-			// Calculate duration and billable amount
-			duration := timesheetService.CalculateDuration(session)
-			billableAmount := timesheetService.CalculateBillableAmount(session)
-
-			// Display session details
-			fmt.Printf("Created session for %s:\n", client)
-			fmt.Printf("  Start: %s\n", session.StartTime.Format("2006-01-02 15:04:05"))
-			fmt.Printf("  End: %s\n", session.EndTime.Format("2006-01-02 15:04:05"))
-			fmt.Printf("  Duration: %s\n", timesheetService.FormatDuration(duration))
-			if description != "" {
-				fmt.Printf("  Description: %s\n", description)
-			}
-			if billableAmount > 0 {
-				fmt.Printf("  Billable: %s\n", timesheetService.FormatBillableAmount(billableAmount))
-			}
-			return nil
-		},
 	}
 
 	cmd.Flags().StringVarP(&client, "client", "c", "", "Client name (required)")
@@ -98,6 +51,50 @@ func newSessionsCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 	cmd.MarkFlagRequired("client")
 	cmd.MarkFlagRequired("from")
 	cmd.MarkFlagRequired("to")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+
+		startTime, err := parseTimeString(fromTime)
+		if err != nil {
+			return fmt.Errorf("invalid start time format: %w", err)
+		}
+
+		endTime, err := parseTimeString(toTime)
+		if err != nil {
+			return fmt.Errorf("invalid end time format: %w", err)
+		}
+
+		if endTime.Before(startTime) || endTime.Equal(startTime) {
+			return fmt.Errorf("end time must be after start time")
+		}
+
+		var desc *string
+		if description != "" {
+			desc = &description
+		}
+
+		session, err := timesheetService.CreateSessionWithTimes(ctx, client, startTime, endTime, desc)
+		if err != nil {
+			return fmt.Errorf("failed to create session: %w", err)
+		}
+
+		duration := timesheetService.CalculateDuration(session)
+		billableAmount := timesheetService.CalculateBillableAmount(session)
+
+		// Display session details
+		fmt.Printf("Created session for %s:\n", client)
+		fmt.Printf("  Start: %s\n", session.StartTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("  End: %s\n", session.EndTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("  Duration: %s\n", timesheetService.FormatDuration(duration))
+		if description != "" {
+			fmt.Printf("  Description: %s\n", description)
+		}
+		if billableAmount > 0 {
+			fmt.Printf("  Billable: %s\n", timesheetService.FormatBillableAmount(billableAmount))
+		}
+		return nil
+	}
 
 	return cmd
 }
@@ -178,55 +175,6 @@ func newSessionsListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 	return cmd
 }
 
-// displaySession formats and displays a single work session
-func displaySession(session *models.WorkSession, timesheetService *service.TimesheetService, verbose bool) {
-	duration := timesheetService.CalculateDuration(session)
-	billable := timesheetService.CalculateBillableAmount(session)
-	status := "Active"
-	endTime := "now"
-
-	if session.EndTime != nil {
-		status = "Completed"
-		endTime = session.EndTime.Format("15:04:05")
-	}
-
-	billableStr := ""
-	if billable > 0 {
-		billableStr = fmt.Sprintf(" | %s", timesheetService.FormatBillableAmount(billable))
-	}
-
-	// Main session info
-	fmt.Printf("%s | %s | %s - %s (%s)%s | %s\n",
-		session.ClientName,
-		session.StartTime.Format("2006-01-02"),
-		session.StartTime.Format("15:04:05"),
-		endTime,
-		timesheetService.FormatDuration(duration),
-		billableStr,
-		status)
-
-	// Description (always shown if present)
-	if session.Description != nil && *session.Description != "" {
-		fmt.Printf("  → %s\n", *session.Description)
-	}
-
-	// Full work summary (only in verbose mode)
-	if verbose && session.FullWorkSummary != nil && *session.FullWorkSummary != "" {
-		fmt.Printf("\n  ┌─ Full Work Summary ─────────────────────────────────────────────────\n")
-
-		// Format the summary with strategic linebreaks for better readability
-		summary := formatSummaryWithBreaks(*session.FullWorkSummary)
-		lines := wrapText(summary, 68) // Leave room for indentation
-
-		for _, line := range lines {
-			fmt.Printf("  │ %s\n", line)
-		}
-		fmt.Printf("  └─────────────────────────────────────────────────────────────────────\n")
-	}
-
-	fmt.Println() // Add spacing between sessions
-}
-
 func newSessionsDeleteCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var fromDate, toDate string
 	var force bool
@@ -296,6 +244,164 @@ func newSessionsDeleteCmd(timesheetService *service.TimesheetService) *cobra.Com
 	}
 
 	return cmd
+}
+
+func newSessionsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Command {
+	var hourlyRate float64
+	var companyName, contactName, email, phone string
+	var addressLine1, addressLine2, city, state, postalCode, country, taxNumber, dir string
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update details about a session",
+		Long:  "Update attributes of the session, such as timeframe and hourly rate.",
+		Args:  cobra.MinimumNArgs(1),
+	}
+
+	cmd.Flags().Float64VarP(&hourlyRate, "rate", "r", 0.0, "Hourly rate for the session")
+
+	// Billing detail flags
+	cmd.Flags().StringVar(&companyName, "company", "", "Company name")
+	cmd.Flags().StringVar(&contactName, "contact", "", "Contact person name")
+	cmd.Flags().StringVar(&email, "email", "", "Email address")
+	cmd.Flags().StringVar(&phone, "phone", "", "Phone number")
+	cmd.Flags().StringVar(&addressLine1, "address1", "", "Address line 1")
+	cmd.Flags().StringVar(&addressLine2, "address2", "", "Address line 2")
+	cmd.Flags().StringVar(&city, "city", "", "City")
+	cmd.Flags().StringVar(&state, "state", "", "State/Province")
+	cmd.Flags().StringVar(&postalCode, "postcode", "", "Postal/ZIP code")
+	cmd.Flags().StringVar(&country, "country", "", "Country")
+	cmd.Flags().StringVar(&taxNumber, "tax", "", "Tax/VAT number")
+	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the session")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		print("not implemented")
+		// sessionID := args[0]
+		// if sessionID == "" {
+		// 	return fmt.Errorf("session name is required")
+		// }
+		// ctx := cmd.Context()
+		// if session == "" {
+		// 	return fmt.Errorf("session name is required")
+		// }
+		//
+		// updatedSession, err := timesheetService.UpdateSession(ctx, session, &database.SessionUpdateDetails{
+		// 	HourlyRate:   &hourlyRate,
+		// 	CompanyName:  &companyName,
+		// 	ContactName:  &contactName,
+		// 	Email:        &email,
+		// 	Phone:        &phone,
+		// 	AddressLine1: &addressLine1,
+		// 	AddressLine2: &addressLine2,
+		// 	City:         &city,
+		// 	State:        &state,
+		// 	PostalCode:   &postalCode,
+		// 	Country:      &country,
+		// 	TaxNumber:    &taxNumber,
+		// 	Dir:          &dir,
+		// })
+		// if err != nil {
+		// 	return fmt.Errorf("failed to update session billing: %w", err)
+		// }
+		//
+		// fmt.Printf("Updated session '%s'\nNew state: \n", updatedSession.Name)
+		// timesheetService.DisplaySession(ctx, updatedSession)
+		// return nil
+		return nil
+	}
+
+	return cmd
+}
+
+func newSessionsCsvCmd(timesheetService *service.TimesheetService) *cobra.Command {
+	var fromDate, toDate string
+	var output string
+	var limit int32
+	var period string
+	var date string
+
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export work sessions to CSV",
+		Long:  "Export work sessions to CSV format with hourly rates and billable amounts. Supports optional date filtering.",
+	}
+
+	cmd.Flags().StringVarP(&period, "period", "p", "", "Period type: day, week, fortnight, month")
+	cmd.Flags().StringVarP(&date, "date", "d", "", "If using period, the date in the period (YYYY-MM-DD)")
+	cmd.Flags().StringVarP(&fromDate, "from", "f", "", "Export sessions from this date (YYYY-MM-DD)")
+	cmd.Flags().StringVarP(&toDate, "to", "t", "", "Export sessions to this date (YYYY-MM-DD)")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file (default: stdout)")
+	cmd.Flags().Int32VarP(&limit, "limit", "l", 1000, "Maximum number of sessions to export")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+
+		if fromDate == "" && toDate == "" && period != "" && date != "" {
+			fmt.Printf("Period: %s, date: %s\n", period, date)
+			var d time.Time
+			if date != "" {
+				d, _ = time.Parse("2006-01-02", date)
+			}
+			fromDateTime, toDateTime := calculatePeriodRange(period, d)
+			fromDate = fromDateTime.Format("2006-01-02")
+			toDate = toDateTime.Format("2006-01-02")
+		}
+
+		fmt.Printf("Flags: period: %s, date: %s, from: %s, to: %s, output: %s, limit: %d\n", period, date, fromDate, toDate, output, limit)
+
+		return exportSessions(ctx, timesheetService, fromDate, toDate, limit, output)
+	}
+
+	return cmd
+}
+
+// displaySession formats and displays a single work session
+func displaySession(session *models.WorkSession, timesheetService *service.TimesheetService, verbose bool) {
+	duration := timesheetService.CalculateDuration(session)
+	billable := timesheetService.CalculateBillableAmount(session)
+	status := "Active"
+	endTime := "now"
+
+	if session.EndTime != nil {
+		status = "Completed"
+		endTime = session.EndTime.Format("15:04:05")
+	}
+
+	billableStr := ""
+	if billable > 0 {
+		billableStr = fmt.Sprintf(" | %s", timesheetService.FormatBillableAmount(billable))
+	}
+
+	// Main session info
+	fmt.Printf("%s | %s | %s - %s (%s)%s | %s\n",
+		session.ClientName,
+		session.StartTime.Format("2006-01-02"),
+		session.StartTime.Format("15:04:05"),
+		endTime,
+		timesheetService.FormatDuration(duration),
+		billableStr,
+		status)
+
+	// Description (always shown if present)
+	if session.Description != nil && *session.Description != "" {
+		fmt.Printf("  → %s\n", *session.Description)
+	}
+
+	// Full work summary (only in verbose mode)
+	if verbose && session.FullWorkSummary != nil && *session.FullWorkSummary != "" {
+		fmt.Printf("\n  ┌─ Full Work Summary ─────────────────────────────────────────────────\n")
+
+		// Format the summary with strategic linebreaks for better readability
+		summary := formatSummaryWithBreaks(*session.FullWorkSummary)
+		lines := wrapText(summary, 68) // Leave room for indentation
+
+		for _, line := range lines {
+			fmt.Printf("  │ %s\n", line)
+		}
+		fmt.Printf("  └─────────────────────────────────────────────────────────────────────\n")
+	}
+
+	fmt.Println() // Add spacing between sessions
 }
 
 // wrapText wraps text to the specified width
@@ -393,105 +499,6 @@ func formatSummaryWithBreaks(text string) string {
 	return result
 }
 
-func newSessionsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Command {
-	var hourlyRate float64
-	var session string
-	var companyName, contactName, email, phone string
-	var addressLine1, addressLine2, city, state, postalCode, country, taxNumber, dir string
-
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update details about a session",
-		Long:  "Update attributes of the session, such as timeframe and hourly rate.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			print("not implemented")
-			// ctx := cmd.Context()
-			// if session == "" {
-			// 	return fmt.Errorf("session name is required")
-			// }
-			//
-			// updatedSession, err := timesheetService.UpdateSession(ctx, session, &database.SessionUpdateDetails{
-			// 	HourlyRate:   &hourlyRate,
-			// 	CompanyName:  &companyName,
-			// 	ContactName:  &contactName,
-			// 	Email:        &email,
-			// 	Phone:        &phone,
-			// 	AddressLine1: &addressLine1,
-			// 	AddressLine2: &addressLine2,
-			// 	City:         &city,
-			// 	State:        &state,
-			// 	PostalCode:   &postalCode,
-			// 	Country:      &country,
-			// 	TaxNumber:    &taxNumber,
-			// 	Dir:          &dir,
-			// })
-			// if err != nil {
-			// 	return fmt.Errorf("failed to update session billing: %w", err)
-			// }
-			//
-			// fmt.Printf("Updated session '%s'\nNew state: \n", updatedSession.Name)
-			// timesheetService.DisplaySession(ctx, updatedSession)
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVarP(&session, "session", "c", "", "Name of the session to update")
-	cmd.Flags().Float64VarP(&hourlyRate, "rate", "r", 0.0, "Hourly rate for the session")
-
-	// Billing detail flags
-	cmd.Flags().StringVar(&companyName, "company", "", "Company name")
-	cmd.Flags().StringVar(&contactName, "contact", "", "Contact person name")
-	cmd.Flags().StringVar(&email, "email", "", "Email address")
-	cmd.Flags().StringVar(&phone, "phone", "", "Phone number")
-	cmd.Flags().StringVar(&addressLine1, "address1", "", "Address line 1")
-	cmd.Flags().StringVar(&addressLine2, "address2", "", "Address line 2")
-	cmd.Flags().StringVar(&city, "city", "", "City")
-	cmd.Flags().StringVar(&state, "state", "", "State/Province")
-	cmd.Flags().StringVar(&postalCode, "postcode", "", "Postal/ZIP code")
-	cmd.Flags().StringVar(&country, "country", "", "Country")
-	cmd.Flags().StringVar(&taxNumber, "tax", "", "Tax/VAT number")
-	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the session")
-
-	return cmd
-}
-
-func newSessionsCsvCmd(timesheetService *service.TimesheetService) *cobra.Command {
-	var fromDate, toDate string
-	var output string
-	var limit int32
-	var period string
-	var date string
-
-	cmd := &cobra.Command{
-		Use:   "export",
-		Short: "Export work sessions to CSV",
-		Long:  "Export work sessions to CSV format with hourly rates and billable amounts. Supports optional date filtering.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			if fromDate == "" && toDate == "" && period != "" && date != "" {
-				var d time.Time
-				if date != "" {
-					d, _ = time.Parse("2006-01-02", date)
-				}
-				fromDateTime, toDateTime := calculatePeriodRange(period, d)
-				fromDate = fromDateTime.Format("2006-01-02")
-				toDate = toDateTime.Format("2006-01-02")
-			}
-			return exportSessions(ctx, timesheetService, fromDate, toDate, limit, output)
-		},
-	}
-
-	cmd.Flags().StringVarP(&period, "period", "p", "week", "Period type: day, week, fortnight, month")
-	cmd.Flags().StringVarP(&date, "date", "d", "date", "If using period, the date in the period (YYYY-MM-DD)")
-	cmd.Flags().StringVarP(&fromDate, "from", "f", "", "Export sessions from this date (YYYY-MM-DD)")
-	cmd.Flags().StringVarP(&toDate, "to", "t", "", "Export sessions to this date (YYYY-MM-DD)")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file (default: stdout)")
-	cmd.Flags().Int32VarP(&limit, "limit", "l", 1000, "Maximum number of sessions to export")
-
-	return cmd
-}
-
 func exportSessions(ctx context.Context, timesheetService *service.TimesheetService, fromDate, toDate string, limit int32, output string) error {
 	var sessions []*models.WorkSession
 	var err error
@@ -503,8 +510,10 @@ func exportSessions(ctx context.Context, timesheetService *service.TimesheetServ
 		if toDate == "" {
 			toDate = "2099-12-31"
 		}
+		fmt.Printf("Exporting wth date range %s to %s\n with limit %d\n", fromDate, toDate, limit)
 		sessions, err = timesheetService.ListSessionsWithDateRange(ctx, fromDate, toDate, limit)
 	} else {
+		fmt.Printf("Exporting recent sessions with limit %d\n", limit)
 		sessions, err = timesheetService.ListRecentSessions(ctx, limit)
 	}
 	if err != nil {
