@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"fmt"
@@ -7,28 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/spf13/cobra"
-
-	"github.com/jesses-code-adventures/work/internal/service"
 )
 
-func newGitCheckCmd(timesheetService *service.TimesheetService) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "git-check <session-id>",
-		Short: "Debug git commands for a specific session",
-		Long:  "Shows exactly what git commands are executed for a session's time period and their outputs.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			sessionID := args[0]
-			return gitCheckSession(timesheetService, sessionID)
-		},
-	}
-
-	return cmd
-}
-
-func gitCheckSession(timesheetService *service.TimesheetService, sessionID string) error {
+// GitCheckSession performs debugging of git commands for a specific session
+func (s *TimesheetService) GitCheckSession(sessionID string) error {
 	// Use SQLite command to get session and client info together
 	sqlCmd := fmt.Sprintf(`sqlite3 work.db "SELECT s.id, c.name, s.start_time, s.end_time, c.dir FROM sessions s JOIN clients c ON s.client_id = c.id WHERE s.id = '%s';"`, sessionID)
 
@@ -148,7 +130,7 @@ func gitCheckSession(timesheetService *service.TimesheetService, sessionID strin
 
 	// Find git repositories
 	fmt.Printf("\n=== FINDING GIT REPOSITORIES ===\n")
-	gitRepos := findGitRepositoriesDebug(dir)
+	gitRepos := s.findGitRepositoriesDebug(dir)
 
 	if len(gitRepos) == 0 {
 		fmt.Printf("No git repositories found in %s\n", dir)
@@ -161,7 +143,7 @@ func gitCheckSession(timesheetService *service.TimesheetService, sessionID strin
 	}
 
 	// Get the git analysis prompt
-	gitPrompt := timesheetService.Config().GitAnalysisPrompt
+	gitPrompt := s.cfg.GitAnalysisPrompt
 	actualPrompt := strings.ReplaceAll(gitPrompt, "{from_date}", fromDateTime)
 	actualPrompt = strings.ReplaceAll(actualPrompt, "{to_date}", toDateTime)
 
@@ -183,21 +165,21 @@ func gitCheckSession(timesheetService *service.TimesheetService, sessionID strin
 
 		// Run basic git commands to show repository state
 		fmt.Printf("\n--- Git Status ---\n")
-		runGitCommand(repoDir, "git", "status", "--porcelain")
+		s.runGitCommand(repoDir, "git", "status", "--porcelain")
 
 		fmt.Printf("\n--- Git Log for Time Range ---\n")
 		logCmd := fmt.Sprintf("git log --since=\"%s\" --until=\"%s\" --oneline", fromDateTime, toDateTime)
 		fmt.Printf("Command: %s\n", logCmd)
-		runGitCommand(repoDir, "git", "log", fmt.Sprintf("--since=%s", fromDateTime), fmt.Sprintf("--until=%s", toDateTime), "--oneline")
+		s.runGitCommand(repoDir, "git", "log", fmt.Sprintf("--since=%s", fromDateTime), fmt.Sprintf("--until=%s", toDateTime), "--oneline")
 
 		fmt.Printf("\n--- Git Log with Details ---\n")
-		runGitCommand(repoDir, "git", "log", fmt.Sprintf("--since=%s", fromDateTime), fmt.Sprintf("--until=%s", toDateTime), "--stat")
+		s.runGitCommand(repoDir, "git", "log", fmt.Sprintf("--since=%s", fromDateTime), fmt.Sprintf("--until=%s", toDateTime), "--stat")
 
 		fmt.Printf("\n--- Recent Git Log (last 5 commits) ---\n")
-		runGitCommand(repoDir, "git", "log", "--oneline", "-5")
+		s.runGitCommand(repoDir, "git", "log", "--oneline", "-5")
 
 		fmt.Printf("\n--- Recent Git Log with Timestamps ---\n")
-		runGitCommand(repoDir, "git", "log", "--pretty=format:%h %cd %s", "--date=iso", "-5")
+		s.runGitCommand(repoDir, "git", "log", "--pretty=format:%h %cd %s", "--date=iso", "-5")
 
 		// Test the actual opencode command that would be run
 		fmt.Printf("\n--- Testing OpenCode Command ---\n")
@@ -206,13 +188,13 @@ func gitCheckSession(timesheetService *service.TimesheetService, sessionID strin
 
 		// Actually run the opencode command to see what happens
 		fmt.Printf("\n--- OpenCode Output ---\n")
-		runOpenCodeCommand(repoDir, actualPrompt)
+		s.runOpenCodeCommand(repoDir, actualPrompt)
 	}
 
 	return nil
 }
 
-func findGitRepositoriesDebug(root string) []string {
+func (s *TimesheetService) findGitRepositoriesDebug(root string) []string {
 	var gitRepos []string
 
 	fmt.Printf("Searching for git repositories in: %s\n", root)
@@ -226,7 +208,7 @@ func findGitRepositoriesDebug(root string) []string {
 	if err != nil {
 		fmt.Printf("Find command failed: %v\n", err)
 		fmt.Printf("Falling back to directory walk...\n")
-		return findGitRepositoriesWalkDebug(root)
+		return s.findGitRepositoriesWalkDebug(root)
 	}
 
 	fmt.Printf("Find command output:\n%s\n", string(output))
@@ -245,13 +227,13 @@ func findGitRepositoriesDebug(root string) []string {
 	// If no recently modified repos found, check for repos with recent commits
 	if len(gitRepos) == 0 {
 		fmt.Printf("No recently modified .git directories found, checking for repos with recent commits...\n")
-		return findGitRepositoriesWithRecentCommitsDebug(root)
+		return s.findGitRepositoriesWithRecentCommitsDebug(root)
 	}
 
 	return gitRepos
 }
 
-func findGitRepositoriesWalkDebug(root string) []string {
+func (s *TimesheetService) findGitRepositoriesWalkDebug(root string) []string {
 	fmt.Printf("Walking directory tree...\n")
 	var gitRepos []string
 	maxDepth := 2
@@ -287,7 +269,7 @@ func findGitRepositoriesWalkDebug(root string) []string {
 	return gitRepos
 }
 
-func findGitRepositoriesWithRecentCommitsDebug(root string) []string {
+func (s *TimesheetService) findGitRepositoriesWithRecentCommitsDebug(root string) []string {
 	fmt.Printf("Checking for repositories with recent commits...\n")
 	var gitRepos []string
 	maxDepth := 2
@@ -332,7 +314,7 @@ func findGitRepositoriesWithRecentCommitsDebug(root string) []string {
 	return gitRepos
 }
 
-func runGitCommand(repoDir string, args ...string) {
+func (s *TimesheetService) runGitCommand(repoDir string, args ...string) {
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = repoDir
 
@@ -353,11 +335,11 @@ func runGitCommand(repoDir string, args ...string) {
 	}
 }
 
-func runOpenCodeCommand(repoDir, prompt string) {
+func (s *TimesheetService) runOpenCodeCommand(repoDir, prompt string) {
 	// Create the shell command to cd into repository directory and run opencode
 	shellCmd := fmt.Sprintf("cd %s && echo %s | opencode run",
-		shellescape(repoDir),
-		shellescape(prompt))
+		s.shellescape(repoDir),
+		s.shellescape(prompt))
 
 	fmt.Printf("Shell command: %s\n", shellCmd)
 

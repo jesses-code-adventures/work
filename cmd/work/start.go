@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +35,7 @@ func newStartCmd(timesheetService *service.TimesheetService) *cobra.Command {
 
 			if fromTime != "" {
 				// Parse the custom start time
-				startTime, parseErr := parseStartTime(fromTime)
+				startTime, parseErr := timesheetService.ParseStartTime(fromTime)
 				if parseErr != nil {
 					return fmt.Errorf("invalid time format: %w", parseErr)
 				}
@@ -68,29 +66,4 @@ func newStartCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	cmd.MarkFlagRequired("client")
 
 	return cmd
-}
-
-func parseStartTime(timeStr string) (time.Time, error) {
-	now := time.Now()
-
-	// Try HH:MM format first (apply to current date)
-	if len(timeStr) == 5 && strings.Contains(timeStr, ":") {
-		parsed, err := time.Parse("15:04", timeStr)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("invalid time format, expected HH:MM: %w", err)
-		}
-		// Apply the time to today's date
-		return time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), 0, 0, now.Location()), nil
-	}
-
-	// Try YYYY-MM-DD HH:MM format
-	if len(timeStr) == 16 && strings.Count(timeStr, "-") == 2 && strings.Contains(timeStr, ":") {
-		parsed, err := time.Parse("2006-01-02 15:04", timeStr)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("invalid datetime format, expected YYYY-MM-DD HH:MM: %w", err)
-		}
-		return parsed, nil
-	}
-
-	return time.Time{}, fmt.Errorf("invalid time format, expected HH:MM or YYYY-MM-DD HH:MM")
 }
