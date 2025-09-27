@@ -33,9 +33,20 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date st
 
 	invoiceCount := 0
 	for clientName, clientSessionList := range clientSessions {
-		total := s.calculateClientTotal(clientSessionList)
-		if total <= 0 {
+		subtotal := s.calculateClientTotal(clientSessionList)
+		if subtotal <= 0 {
 			continue // Skip clients with no billable hours
+		}
+
+		// Calculate final total (including GST if applicable)
+		var total float64
+		var totalDisplay string
+		if s.cfg.GSTRegistered {
+			total = subtotal * 1.1 // Add 10% GST
+			totalDisplay = fmt.Sprintf("$%.2f ($%.2f inc. GST)", subtotal, total)
+		} else {
+			total = subtotal
+			totalDisplay = fmt.Sprintf("$%.2f", total)
 		}
 
 		// Get client details for billing information
@@ -53,7 +64,7 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date st
 			return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
 		}
 
-		fmt.Printf("Generated invoice: %s (Total: $%.2f)\n", fileName, total)
+		fmt.Printf("Generated invoice: %s (Total: %s)\n", fileName, totalDisplay)
 		invoiceCount++
 	}
 
@@ -82,9 +93,28 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
 
-	// Header
+	// Header with company name
 	pdf.Cell(40, 10, fmt.Sprintf("Invoice - %s", s.formatClientName(client.Name)))
-	pdf.Ln(12)
+	pdf.Ln(8)
+
+	// Billing company name and ABN/ACN
+	if s.cfg.BillingCompanyName != "" {
+		pdf.SetFont("Arial", "", 11)
+		pdf.Cell(40, 6, s.cfg.BillingCompanyName)
+		pdf.Ln(6)
+	}
+
+	if s.cfg.BillingABN != "" {
+		pdf.SetFont("Arial", "", 10)
+		abnText := fmt.Sprintf("ABN %s", s.cfg.BillingABN)
+		if s.cfg.BillingACN != "" {
+			abnText = fmt.Sprintf("ABN %s (includes ACN %s)", s.cfg.BillingABN, s.cfg.BillingACN)
+		}
+		pdf.Cell(40, 6, abnText)
+		pdf.Ln(12)
+	}
+
+	pdf.SetFont("Arial", "B", 16)
 
 	// Client billing details in two columns
 	if client.CompanyName != nil || client.ContactName != nil {
@@ -96,79 +126,111 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 
 		// Left column items
 		leftColY := pdf.GetY()
-		if client.CompanyName != nil {
-			pdf.Cell(95, 6, *client.CompanyName)
-			pdf.Ln(6)
-		}
+		leftEndY := leftColY
 
+		// Contact name first (person above company)
 		if client.ContactName != nil {
 			pdf.Cell(95, 6, *client.ContactName)
 			pdf.Ln(6)
+			leftEndY = pdf.GetY()
 		}
 
-		if client.AddressLine1 != nil {
-			pdf.Cell(95, 6, *client.AddressLine1)
+		// Then company name
+		if client.CompanyName != nil {
+			pdf.Cell(95, 6, *client.CompanyName)
 			pdf.Ln(6)
+			leftEndY = pdf.GetY()
 		}
 
-		if client.AddressLine2 != nil {
-			pdf.Cell(95, 6, *client.AddressLine2)
+		// Address as single line
+		address := s.formatClientAddress(client)
+		if address != "" {
+			pdf.Cell(95, 6, address)
 			pdf.Ln(6)
-		}
-
-		// City, State, Postal Code on one line
-		addressLine := ""
-		if client.City != nil {
-			addressLine += *client.City
-		}
-		if client.State != nil {
-			if addressLine != "" {
-				addressLine += ", "
-			}
-			addressLine += *client.State
-		}
-		if client.PostalCode != nil {
-			if addressLine != "" {
-				addressLine += " "
-			}
-			addressLine += *client.PostalCode
-		}
-		if addressLine != "" {
-			pdf.Cell(95, 6, addressLine)
-			pdf.Ln(6)
-		}
-
-		if client.Country != nil {
-			pdf.Cell(95, 6, *client.Country)
-			pdf.Ln(6)
+			leftEndY = pdf.GetY()
 		}
 
 		// Right column items
 		rightColY := leftColY
+		rightEndY := rightColY
 		pdf.SetXY(105, rightColY)
 
 		if client.Email != nil {
 			pdf.Cell(85, 6, fmt.Sprintf("Email: %s", *client.Email))
-			pdf.SetXY(105, pdf.GetY()+6)
+			rightEndY = pdf.GetY() + 6
+			pdf.SetXY(105, rightEndY)
 		}
 
 		if client.Phone != nil {
 			pdf.Cell(85, 6, fmt.Sprintf("Phone: %s", *client.Phone))
-			pdf.SetXY(105, pdf.GetY()+6)
+			rightEndY = pdf.GetY() + 6
+			pdf.SetXY(105, rightEndY)
 		}
 
 		if client.Abn != nil {
 			pdf.Cell(85, 6, fmt.Sprintf("ABN: %s", *client.Abn))
-			pdf.SetXY(105, pdf.GetY()+6)
+			rightEndY = pdf.GetY() + 6
+			pdf.SetXY(105, rightEndY)
 		}
 
-		// Reset to left margin and add space
-		pdf.SetX(10)
-		pdf.Ln(8)
+		// Set Y position to the maximum of both columns
+		maxY := leftEndY
+		if rightEndY > maxY {
+			maxY = rightEndY
+		}
+
+		// Reset to left margin and position after both columns
+		pdf.SetXY(10, maxY)
+		pdf.Ln(12) // Add proper spacing after Bill To section
 	}
 
-	pdf.SetFont("Arial", "", 12)
-	pdf.Cell(40, 10, fmt.Sprintf("Date Range: %s to %s", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02")))
+	// Payment Details (moved before totals)
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(40, 8, "Payment Details:")
+	pdf.Ln(10)
+
+	pdf.SetFont("Arial", "", 11)
+	pdf.Cell(40, 6, fmt.Sprintf("Bank: %s", s.cfg.BillingBank))
+	pdf.Ln(6)
+	pdf.Cell(40, 6, fmt.Sprintf("Account Name: %s", s.cfg.BillingAccountName))
+	pdf.Ln(6)
+	pdf.Cell(40, 6, fmt.Sprintf("Account Number: %s", s.cfg.BillingAccountNumber))
+	pdf.Ln(6)
+	pdf.Cell(40, 6, fmt.Sprintf("BSB: %s", s.cfg.BillingBSB))
+	pdf.Ln(12) // Add space before totals
+
+	// Calculate totals first
+	subtotal := 0.0
+	for _, session := range sessions {
+		amount := s.CalculateBillableAmount(session)
+		subtotal += amount
+	}
+
+	// Totals section on first page
+	pdf.SetFont("Arial", "B", 11)
+	pdf.Cell(168, 8, "Subtotal:")
+	pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", subtotal), "", 1, "R", false, 0, "")
+
+	// GST (10%) - only if GST registered
+	var total float64
+	if s.cfg.GSTRegistered {
+		gst := subtotal * 0.1
+		pdf.Cell(168, 8, "GST (10%):")
+		pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", gst), "", 1, "R", false, 0, "")
+		total = subtotal + gst
+	} else {
+		total = subtotal
+	}
+
+	// Total
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(168, 10, "Total:")
+	pdf.CellFormat(22, 10, fmt.Sprintf("$%.2f", total), "", 1, "R", false, 0, "")
+
+	// Start new page for the session details table
+	pdf.AddPage()
+	pdf.SetFont("Arial", "B", 14)
+	pdf.Cell(40, 10, fmt.Sprintf("Session Details (%s to %s)", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02")))
 	pdf.Ln(12)
 
 	// Table headers - adjusted widths to fit A4 (total ~190mm)
@@ -182,12 +244,10 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 
 	// Table rows
 	pdf.SetFont("Arial", "", 8)
-	subtotal := 0.0
 
 	for _, session := range sessions {
 		duration := s.CalculateDuration(session)
 		amount := s.CalculateBillableAmount(session)
-		subtotal += amount
 
 		// Prepare description lines with text wrapping
 		description := ""
@@ -248,41 +308,6 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 		pdf.CellFormat(22, rowHeight, fmt.Sprintf("$%.2f", amount), "1", 1, "R", false, 0, "")
 	}
 
-	// Totals
-	pdf.Ln(5)
-	pdf.SetFont("Arial", "B", 11)
-
-	// Subtotal
-	pdf.Cell(168, 8, "Subtotal:")
-	pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", subtotal), "", 1, "R", false, 0, "")
-
-	// GST (10%)
-	gst := subtotal * 0.1
-	pdf.Cell(168, 8, "GST (10%):")
-	pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", gst), "", 1, "R", false, 0, "")
-
-	// Total
-	total := subtotal + gst
-	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(168, 10, "Total:")
-	pdf.CellFormat(22, 10, fmt.Sprintf("$%.2f", total), "", 1, "R", false, 0, "")
-
-	// Payment Details
-	pdf.Ln(10)
-	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(40, 8, "Payment Details:")
-	pdf.Ln(10)
-
-	pdf.SetFont("Arial", "", 11)
-	pdf.Cell(40, 6, fmt.Sprintf("Bank: %s", s.cfg.BillingBank))
-	pdf.Ln(6)
-	pdf.Cell(40, 6, fmt.Sprintf("Account Name: %s", s.cfg.BillingAccountName))
-	pdf.Ln(6)
-	pdf.Cell(40, 6, fmt.Sprintf("Account Number: %s", s.cfg.BillingAccountNumber))
-	pdf.Ln(6)
-	pdf.Cell(40, 6, fmt.Sprintf("BSB: %s", s.cfg.BillingBSB))
-	pdf.Ln(6)
-
 	return pdf.OutputFileAndClose(fileName)
 }
 
@@ -313,6 +338,36 @@ func (s *TimesheetService) formatClientName(name string) string {
 		}
 	}
 	return strings.Join(words, " ")
+}
+
+func (s *TimesheetService) formatClientAddress(client *models.Client) string {
+	var addressParts []string
+
+	if client.AddressLine1 != nil && *client.AddressLine1 != "" {
+		addressParts = append(addressParts, *client.AddressLine1)
+	}
+
+	if client.AddressLine2 != nil && *client.AddressLine2 != "" {
+		addressParts = append(addressParts, *client.AddressLine2)
+	}
+
+	if client.City != nil && *client.City != "" {
+		addressParts = append(addressParts, *client.City)
+	}
+
+	if client.State != nil && *client.State != "" {
+		addressParts = append(addressParts, *client.State)
+	}
+
+	if client.PostalCode != nil && *client.PostalCode != "" {
+		addressParts = append(addressParts, *client.PostalCode)
+	}
+
+	if client.Country != nil && *client.Country != "" {
+		addressParts = append(addressParts, *client.Country)
+	}
+
+	return strings.Join(addressParts, ", ")
 }
 
 func (s *TimesheetService) wrapDescriptionText(text string, maxChars int) []string {

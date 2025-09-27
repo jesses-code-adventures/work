@@ -12,7 +12,7 @@ PROD_DATABASE := $(PROD_DATABASE_URL)?authToken=$(TURSO_TOKEN)
 
 # Build binary
 build:
-	go build -o bin/$(BIN_NAME) \
+	go build \
 		-ldflags "\
 			-X 'main.DevMode=true' \
 			-X 'main.GitPrompt=$(GIT_ANALYSIS_PROMPT)' \
@@ -20,11 +20,17 @@ build:
 			-X 'main.BillingAccountNumber=$(BILLING_ACCOUNT_NUMBER)' \
 			-X 'main.BillingAccountName=$(BILLING_ACCOUNT_NAME)' \
 			-X 'main.BillingBSB=$(BILLING_BSB)' \
+			-X 'main.BillingABN=$(BILLING_ABN)' \
+			-X 'main.BillingACN=$(BILLING_ACN)' \
+			-X 'main.BillingCompanyName=$(BILLING_COMPANY_NAME)' \
+			-X 'main.GSTRegistered=$(GST_REGISTERED)' \
 			" \
+		-o bin/$(BIN_NAME) \
 		./cmd/$(BIN_NAME)
 
 prod-build:
-	go build -ldflags "\
+	go build \
+		-ldflags "\
 		-X 'main.DBConn=$(PROD_DATABASE)' \
 		-X 'main.DBDriver=$(PROD_DATABASE_DRIVER)' \
 		-X 'main.GitPrompt=$(GIT_ANALYSIS_PROMPT)' \
@@ -32,6 +38,10 @@ prod-build:
 		-X 'main.BillingAccountNumber=$(BILLING_ACCOUNT_NUMBER)' \
 		-X 'main.BillingAccountName=$(BILLING_ACCOUNT_NAME)' \
 		-X 'main.BillingBSB=$(BILLING_BSB)' \
+		-X 'main.BillingABN=$(BILLING_ABN)' \
+		-X 'main.BillingACN=$(BILLING_ACN)' \
+		-X 'main.BillingCompanyName=$(BILLING_COMPANY_NAME)' \
+		-X 'main.GSTRegistered=$(GST_REGISTERED)' \
 		-X 'main.DevMode=false'" \
 		-o bin/$(BIN_NAME) \
 		./cmd/$(BIN_NAME)

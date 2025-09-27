@@ -18,6 +18,10 @@ var BillingBank string
 var BillingAccountName string
 var BillingAccountNumber string
 var BillingBSB string
+var BillingABN string
+var BillingACN string
+var BillingCompanyName string
+var GSTRegistered string
 
 func main() {
 	if err := run(); err != nil {
@@ -55,7 +59,7 @@ func main() {
 // }
 
 func run() error {
-	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode, BillingBank, BillingAccountName, BillingAccountNumber, BillingBSB)
+	cfg, err := config.Load(DBConn, DBDriver, GitPrompt, DevMode, BillingBank, BillingAccountName, BillingAccountNumber, BillingBSB, BillingABN, BillingACN, BillingCompanyName, GSTRegistered)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

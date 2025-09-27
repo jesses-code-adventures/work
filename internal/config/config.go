@@ -19,9 +19,13 @@ type Config struct {
 	BillingAccountName   string
 	BillingAccountNumber string
 	BillingBSB           string
+	BillingABN           string
+	BillingACN           string
+	BillingCompanyName   string
+	GSTRegistered        bool
 }
 
-func Load(dbConn, dbDriver, gitPrompt, devMode, billingBank, billingAccountName, billingAccountNumber, billingBSB string) (*Config, error) {
+func Load(dbConn, dbDriver, gitPrompt, devMode, billingBank, billingAccountName, billingAccountNumber, billingBSB, billingABN, billingACN, billingCompanyName, gstRegistered string) (*Config, error) {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("error loading .env file: %w", err)
 	}
@@ -54,8 +58,25 @@ func Load(dbConn, dbDriver, gitPrompt, devMode, billingBank, billingAccountName,
 		billingBSB = getEnv("BILLING_BSB", "bsb")
 	}
 
+	if billingABN == "" {
+		billingABN = getEnv("BILLING_ABN", "abn")
+	}
+
+	if billingACN == "" {
+		billingACN = getEnv("BILLING_ACN", "acn")
+	}
+
+	if billingCompanyName == "" {
+		billingCompanyName = getEnv("BILLING_COMPANY_NAME", "company name")
+	}
+
+	if gstRegistered == "" {
+		gstRegistered = getEnv("GST_REGISTERED", "false")
+	}
+
 	// Dev mode defaults to true for local builds, false for prod
 	isDevMode := devMode == "true" || (devMode == "" && getEnv("DEV_MODE", "true") == "true")
+	isGSTRegistered := gstRegistered == "true" || (gstRegistered == "" && getEnv("GST_REGISTERED", "false") == "true")
 
 	cfg := &Config{
 		DatabaseName:         getEnv("DATABASE_NAME", "work"),
@@ -67,6 +88,10 @@ func Load(dbConn, dbDriver, gitPrompt, devMode, billingBank, billingAccountName,
 		BillingAccountName:   billingAccountName,
 		BillingAccountNumber: billingAccountNumber,
 		BillingBSB:           billingBSB,
+		BillingABN:           billingABN,
+		BillingACN:           billingACN,
+		BillingCompanyName:   billingCompanyName,
+		GSTRegistered:        isGSTRegistered,
 	}
 
 	return cfg, nil
