@@ -444,7 +444,7 @@ func (s *SQLiteDB) UpdateClient(ctx context.Context, clientID string, updates *C
 		State:        ptrToNullString(updates.State),
 		PostalCode:   ptrToNullString(updates.PostalCode),
 		Country:      ptrToNullString(updates.Country),
-		TaxNumber:    ptrToNullString(updates.TaxNumber),
+		Abn:          ptrToNullString(updates.Abn),
 		Dir:          ptrToNullString(updates.Dir),
 	})
 	if err != nil {
@@ -515,7 +515,7 @@ func (s *SQLiteDB) convertDBClientToModel(client db.Client) *models.Client {
 		State:        nullStringToPtr(client.State),
 		PostalCode:   nullStringToPtr(client.PostalCode),
 		Country:      nullStringToPtr(client.Country),
-		TaxNumber:    nullStringToPtr(client.TaxNumber),
+		Abn:          nullStringToPtr(client.Abn),
 		Dir:          nullStringToPtr(client.Dir),
 		CreatedAt:    client.CreatedAt,
 		UpdatedAt:    client.UpdatedAt,

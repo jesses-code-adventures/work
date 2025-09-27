@@ -20,7 +20,7 @@ type Client struct {
 	State        *string   `json:"state,omitempty" db:"state"`
 	PostalCode   *string   `json:"postal_code,omitempty" db:"postal_code"`
 	Country      *string   `json:"country,omitempty" db:"country"`
-	TaxNumber    *string   `json:"tax_number,omitempty" db:"tax_number"`
+	Abn          *string   `json:"abn,omitempty" db:"abn"`
 	Dir          *string   `json:"dir,omitempty" db:"dir"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`

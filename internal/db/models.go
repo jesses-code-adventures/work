@@ -25,8 +25,8 @@ type Client struct {
 	State        sql.NullString  `db:"state" json:"state"`
 	PostalCode   sql.NullString  `db:"postal_code" json:"postal_code"`
 	Country      sql.NullString  `db:"country" json:"country"`
-	TaxNumber    sql.NullString  `db:"tax_number" json:"tax_number"`
 	Dir          sql.NullString  `db:"dir" json:"dir"`
+	Abn          sql.NullString  `db:"abn" json:"abn"`
 }
 
 type Session struct {

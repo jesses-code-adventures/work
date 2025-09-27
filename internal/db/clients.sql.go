@@ -11,9 +11,9 @@ import (
 )
 
 const createClient = `-- name: CreateClient :one
-INSERT INTO clients (id, name, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir)
+INSERT INTO clients (id, name, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, abn, dir)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
-RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir
+RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, dir, abn
 `
 
 type CreateClientParams struct {
@@ -30,7 +30,7 @@ type CreateClientParams struct {
 	State        sql.NullString  `db:"state" json:"state"`
 	PostalCode   sql.NullString  `db:"postal_code" json:"postal_code"`
 	Country      sql.NullString  `db:"country" json:"country"`
-	TaxNumber    sql.NullString  `db:"tax_number" json:"tax_number"`
+	Abn          sql.NullString  `db:"abn" json:"abn"`
 	Dir          sql.NullString  `db:"dir" json:"dir"`
 }
 
@@ -49,7 +49,7 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) (Cli
 		arg.State,
 		arg.PostalCode,
 		arg.Country,
-		arg.TaxNumber,
+		arg.Abn,
 		arg.Dir,
 	)
 	var i Client
@@ -69,14 +69,14 @@ func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) (Cli
 		&i.State,
 		&i.PostalCode,
 		&i.Country,
-		&i.TaxNumber,
 		&i.Dir,
+		&i.Abn,
 	)
 	return i, err
 }
 
 const getClientByID = `-- name: GetClientByID :one
-SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir FROM clients
+SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, dir, abn FROM clients
 WHERE id = ?1
 `
 
@@ -99,14 +99,14 @@ func (q *Queries) GetClientByID(ctx context.Context, id string) (Client, error) 
 		&i.State,
 		&i.PostalCode,
 		&i.Country,
-		&i.TaxNumber,
 		&i.Dir,
+		&i.Abn,
 	)
 	return i, err
 }
 
 const getClientByName = `-- name: GetClientByName :one
-SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir FROM clients
+SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, dir, abn FROM clients
 WHERE name = ?1
 `
 
@@ -129,14 +129,14 @@ func (q *Queries) GetClientByName(ctx context.Context, name string) (Client, err
 		&i.State,
 		&i.PostalCode,
 		&i.Country,
-		&i.TaxNumber,
 		&i.Dir,
+		&i.Abn,
 	)
 	return i, err
 }
 
 const getClientsWithDirectories = `-- name: GetClientsWithDirectories :many
-SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir FROM clients
+SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, dir, abn FROM clients
 WHERE dir IS NOT NULL AND dir != ''
 ORDER BY name
 `
@@ -166,8 +166,8 @@ func (q *Queries) GetClientsWithDirectories(ctx context.Context) ([]Client, erro
 			&i.State,
 			&i.PostalCode,
 			&i.Country,
-			&i.TaxNumber,
 			&i.Dir,
+			&i.Abn,
 		); err != nil {
 			return nil, err
 		}
@@ -183,7 +183,7 @@ func (q *Queries) GetClientsWithDirectories(ctx context.Context) ([]Client, erro
 }
 
 const listClients = `-- name: ListClients :many
-SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir FROM clients
+SELECT id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, dir, abn FROM clients
 ORDER BY name
 `
 
@@ -212,8 +212,8 @@ func (q *Queries) ListClients(ctx context.Context) ([]Client, error) {
 			&i.State,
 			&i.PostalCode,
 			&i.Country,
-			&i.TaxNumber,
 			&i.Dir,
+			&i.Abn,
 		); err != nil {
 			return nil, err
 		}
@@ -242,10 +242,10 @@ SET
     state = ?9,
     postal_code = ?10,
     country = ?11,
-    tax_number = ?12,
+    abn = ?12,
     dir = ?13
 WHERE id = ?14
-RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, tax_number, dir
+RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, dir, abn
 `
 
 type UpdateClientParams struct {
@@ -260,7 +260,7 @@ type UpdateClientParams struct {
 	State        sql.NullString  `db:"state" json:"state"`
 	PostalCode   sql.NullString  `db:"postal_code" json:"postal_code"`
 	Country      sql.NullString  `db:"country" json:"country"`
-	TaxNumber    sql.NullString  `db:"tax_number" json:"tax_number"`
+	Abn          sql.NullString  `db:"abn" json:"abn"`
 	Dir          sql.NullString  `db:"dir" json:"dir"`
 	ID           string          `db:"id" json:"id"`
 }
@@ -278,7 +278,7 @@ func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (Cli
 		arg.State,
 		arg.PostalCode,
 		arg.Country,
-		arg.TaxNumber,
+		arg.Abn,
 		arg.Dir,
 		arg.ID,
 	)
@@ -299,8 +299,8 @@ func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (Cli
 		&i.State,
 		&i.PostalCode,
 		&i.Country,
-		&i.TaxNumber,
 		&i.Dir,
+		&i.Abn,
 	)
 	return i, err
 }

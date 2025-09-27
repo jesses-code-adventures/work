@@ -243,8 +243,8 @@ func (s *TimesheetService) DisplayClient(ctx context.Context, client *models.Cli
 	if client.Country != nil {
 		fmt.Printf("Country: %s\n", *client.Country)
 	}
-	if client.TaxNumber != nil {
-		fmt.Printf("Tax Number: %s\n", *client.TaxNumber)
+	if client.Abn != nil {
+		fmt.Printf("ABN: %s\n", *client.Abn)
 	}
 }
 

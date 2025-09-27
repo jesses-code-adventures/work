@@ -104,7 +104,7 @@ func newClientsListCmd(timesheetService *service.TimesheetService) *cobra.Comman
 func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var hourlyRate float64
 	var companyName, contactName, email, phone string
-	var addressLine1, addressLine2, city, state, postalCode, country, taxNumber, dir string
+	var addressLine1, addressLine2, city, state, postalCode, country, abn, dir string
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -126,7 +126,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	cmd.Flags().StringVar(&state, "state", "", "State/Province")
 	cmd.Flags().StringVar(&postalCode, "postcode", "", "Postal/ZIP code")
 	cmd.Flags().StringVar(&country, "country", "", "Country")
-	cmd.Flags().StringVar(&taxNumber, "tax", "", "Tax/VAT number")
+	cmd.Flags().StringVar(&abn, "abn", "", "Australian Business Number (ABN)")
 	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the client")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -148,7 +148,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 			State:        &state,
 			PostalCode:   &postalCode,
 			Country:      &country,
-			TaxNumber:    &taxNumber,
+			Abn:          &abn,
 			Dir:          &dir,
 		})
 		if err != nil {

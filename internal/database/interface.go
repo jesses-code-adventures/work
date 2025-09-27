@@ -19,7 +19,7 @@ type ClientUpdateDetails struct {
 	State        *string
 	PostalCode   *string
 	Country      *string
-	TaxNumber    *string
+	Abn          *string
 	Dir          *string
 }
 

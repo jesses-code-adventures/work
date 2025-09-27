@@ -157,8 +157,8 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 			pdf.SetXY(105, pdf.GetY()+6)
 		}
 
-		if client.TaxNumber != nil {
-			pdf.Cell(85, 6, fmt.Sprintf("Tax ID: %s", *client.TaxNumber))
+		if client.Abn != nil {
+			pdf.Cell(85, 6, fmt.Sprintf("ABN: %s", *client.Abn))
 			pdf.SetXY(105, pdf.GetY()+6)
 		}
 
