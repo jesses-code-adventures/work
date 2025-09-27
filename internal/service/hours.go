@@ -71,15 +71,22 @@ func (s *TimesheetService) ShowTotalHours(ctx context.Context, client, period, p
 		return nil
 	}
 
-	// Calculate total hours
+	// Calculate total hours and billable amount
 	totalDuration := time.Duration(0)
+	totalBillable := 0.0
 	for _, session := range sessions {
 		duration := s.CalculateDuration(session)
 		totalDuration += duration
+		totalBillable += s.CalculateBillableAmount(session)
 	}
 
 	totalHours := totalDuration.Hours()
-	fmt.Printf("%.1f\n", totalHours)
+	fmt.Printf("%.1f hours", totalHours)
+
+	if totalBillable > 0 {
+		fmt.Printf(" | %s", s.FormatBillableAmountWithGST(totalBillable))
+	}
+	fmt.Println()
 
 	return nil
 }

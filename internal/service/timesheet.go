@@ -275,6 +275,19 @@ func (s *TimesheetService) FormatBillableAmount(amount float64) string {
 	if amount <= 0 {
 		return "$0.00"
 	}
+	return s.FormatBillableAmountWithGST(amount)
+}
+
+func (s *TimesheetService) FormatBillableAmountWithGST(amount float64) string {
+	if amount <= 0 {
+		return "$0.00"
+	}
+
+	if s.cfg.GSTRegistered {
+		total := amount * 1.1 // Add 10% GST
+		return fmt.Sprintf("$%.2f ($%.2f inc. GST)", amount, total)
+	}
+
 	return fmt.Sprintf("$%.2f", amount)
 }
 
