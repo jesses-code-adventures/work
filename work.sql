@@ -35,9 +35,9 @@ CREATE TABLE invoices (
     period_type VARCHAR(20) NOT NULL, -- 'day', 'week', 'fortnight', 'month'
     period_start_date DATE NOT NULL,
     period_end_date DATE NOT NULL,
-    subtotal_amount DECIMAL(10,2) NOT NULL,
+    subtotal_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     gst_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    total_amount DECIMAL(10,2) NOT NULL,
+    total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     amount_paid DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     generated_date DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
