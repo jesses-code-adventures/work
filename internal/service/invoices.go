@@ -69,7 +69,7 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		invoiceNumber = s.sanitizeFileName(invoiceNumber)
 
 		// Create invoice record in database
-		invoice, err := s.db.CreateInvoice(ctx, client.ID, invoiceNumber, period, fromDate, toDate, subtotal, gstAmount, total, 0.00)
+		invoice, err := s.db.CreateInvoice(ctx, client.ID, invoiceNumber, period, fromDate, toDate, subtotal, gstAmount, total)
 		if err != nil {
 			return fmt.Errorf("failed to create invoice record for %s: %w", clientName, err)
 		}
@@ -525,9 +525,9 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 	if unpaidOnly {
 		fmt.Println("Unpaid Invoices:")
 	}
-	fmt.Printf("%-38s %-15s %-10s %-12s %-12s %-12s %-12s %-12s\n",
-		"ID", "CLIENT", "PERIOD", "FROM", "TO", "SUBTOTAL", "TOTAL", "PAID")
-	fmt.Println(strings.Repeat("-", 131))
+	fmt.Printf("%-38s %-15s %-10s %-12s %-12s %-12s %-12s %-16s %-12s %-12s\n",
+		"ID", "CLIENT", "PERIOD", "FROM", "TO", "SUBTOTAL", "TOTAL", "AMOUNT_PAID", "STATUS", "PAYMENT_DATE")
+	fmt.Println(strings.Repeat("-", 161))
 
 	// Print each invoice
 	for _, invoice := range invoices {
@@ -540,7 +540,12 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 			paidStatus = "UNPAID"
 		}
 
-		fmt.Printf("%-38s %-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-12s\n",
+		paymentDate := ""
+		if invoice.PaymentDate != nil {
+			paymentDate = invoice.PaymentDate.Format("2006-01-02")
+		}
+
+		fmt.Printf("%-38s %-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-16s %-12s %-12s\n",
 			invoice.ID,
 			truncateString(invoice.ClientName, 14),
 			invoice.PeriodType,
@@ -548,14 +553,16 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 			invoice.PeriodEndDate.Format("2006-01-02"),
 			invoice.SubtotalAmount,
 			invoice.TotalAmount,
+			fmt.Sprintf("$%.2f", invoice.AmountPaid),
 			paidStatus,
+			paymentDate,
 		)
 	}
 
 	return nil
 }
 
-func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount float64) error {
+func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount float64, date time.Time) error {
 	invoice, err := s.db.GetInvoiceByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get invoice: %w", err)
@@ -578,9 +585,15 @@ func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount flo
 		return fmt.Errorf("payment amount ($%.2f) exceeds remaining balance ($%.2f)", amount, remainingAmount)
 	}
 
+	if date.IsZero() {
+		date = time.Now().Truncate(24 * time.Hour)
+	}
+
 	err = s.db.PayInvoice(ctx, db.PayInvoiceParams{
-		ID:     invoice.ID,
-		Amount: amount,
+		ID:          models.NewUUID(),
+		InvoiceID:   invoice.ID,
+		Amount:      amount,
+		PaymentDate: date,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update invoice: %w", err)

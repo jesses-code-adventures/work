@@ -23,9 +23,9 @@ func (q *Queries) ClearSessionInvoiceIDs(ctx context.Context, invoiceID sql.Null
 }
 
 const createInvoice = `-- name: CreateInvoice :one
-INSERT INTO invoices (id, client_id, invoice_number, period_type, period_start_date, period_end_date, subtotal_amount, gst_amount, total_amount, amount_paid)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
-RETURNING id, client_id, invoice_number, period_type, period_start_date, period_end_date, subtotal_amount, gst_amount, total_amount, amount_paid, generated_date, created_at, updated_at
+INSERT INTO invoices (id, client_id, invoice_number, period_type, period_start_date, period_end_date, subtotal_amount, gst_amount, total_amount)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+RETURNING id, client_id, invoice_number, period_type, period_start_date, period_end_date, subtotal_amount, gst_amount, total_amount, generated_date, created_at, updated_at
 `
 
 type CreateInvoiceParams struct {
@@ -38,7 +38,6 @@ type CreateInvoiceParams struct {
 	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
 	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
 	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	AmountPaid      float64   `db:"amount_paid" json:"amount_paid"`
 }
 
 func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error) {
@@ -52,7 +51,6 @@ func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (I
 		arg.SubtotalAmount,
 		arg.GstAmount,
 		arg.TotalAmount,
-		arg.AmountPaid,
 	)
 	var i Invoice
 	err := row.Scan(
@@ -65,7 +63,6 @@ func (q *Queries) CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (I
 		&i.SubtotalAmount,
 		&i.GstAmount,
 		&i.TotalAmount,
-		&i.AmountPaid,
 		&i.GeneratedDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -84,27 +81,28 @@ func (q *Queries) DeleteInvoice(ctx context.Context, id string) error {
 }
 
 const getInvoiceByID = `-- name: GetInvoiceByID :one
-SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.amount_paid, i.generated_date, i.created_at, i.updated_at, c.name as client_name
-FROM invoices i
+SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.generated_date, i.created_at, i.updated_at, i.amount_paid, i.payment_date, c.name as client_name
+FROM v_invoices i
 JOIN clients c ON i.client_id = c.id
 WHERE i.id = ?1
 `
 
 type GetInvoiceByIDRow struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	AmountPaid      float64   `db:"amount_paid" json:"amount_paid"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
-	ClientName      string    `db:"client_name" json:"client_name"`
+	ID              string      `db:"id" json:"id"`
+	ClientID        string      `db:"client_id" json:"client_id"`
+	InvoiceNumber   string      `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string      `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time   `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time   `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  float64     `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       float64     `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     float64     `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time   `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
+	AmountPaid      float64     `db:"amount_paid" json:"amount_paid"`
+	PaymentDate     interface{} `db:"payment_date" json:"payment_date"`
+	ClientName      string      `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetInvoiceByID(ctx context.Context, id string) (GetInvoiceByIDRow, error) {
@@ -120,37 +118,39 @@ func (q *Queries) GetInvoiceByID(ctx context.Context, id string) (GetInvoiceByID
 		&i.SubtotalAmount,
 		&i.GstAmount,
 		&i.TotalAmount,
-		&i.AmountPaid,
 		&i.GeneratedDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AmountPaid,
+		&i.PaymentDate,
 		&i.ClientName,
 	)
 	return i, err
 }
 
 const getInvoiceByNumber = `-- name: GetInvoiceByNumber :one
-SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.amount_paid, i.generated_date, i.created_at, i.updated_at, c.name as client_name
-FROM invoices i
+SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.generated_date, i.created_at, i.updated_at, i.amount_paid, i.payment_date, c.name as client_name
+FROM v_invoices i
 JOIN clients c ON i.client_id = c.id
 WHERE i.invoice_number = ?1
 `
 
 type GetInvoiceByNumberRow struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	AmountPaid      float64   `db:"amount_paid" json:"amount_paid"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
-	ClientName      string    `db:"client_name" json:"client_name"`
+	ID              string      `db:"id" json:"id"`
+	ClientID        string      `db:"client_id" json:"client_id"`
+	InvoiceNumber   string      `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string      `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time   `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time   `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  float64     `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       float64     `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     float64     `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time   `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
+	AmountPaid      float64     `db:"amount_paid" json:"amount_paid"`
+	PaymentDate     interface{} `db:"payment_date" json:"payment_date"`
+	ClientName      string      `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (GetInvoiceByNumberRow, error) {
@@ -166,38 +166,40 @@ func (q *Queries) GetInvoiceByNumber(ctx context.Context, invoiceNumber string) 
 		&i.SubtotalAmount,
 		&i.GstAmount,
 		&i.TotalAmount,
-		&i.AmountPaid,
 		&i.GeneratedDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AmountPaid,
+		&i.PaymentDate,
 		&i.ClientName,
 	)
 	return i, err
 }
 
 const getInvoicesByClient = `-- name: GetInvoicesByClient :many
-SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.amount_paid, i.generated_date, i.created_at, i.updated_at, c.name as client_name
-FROM invoices i
+SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.generated_date, i.created_at, i.updated_at, i.amount_paid, i.payment_date, c.name as client_name
+FROM v_invoices i
 JOIN clients c ON i.client_id = c.id
 WHERE c.name = ?1
 ORDER BY i.generated_date DESC
 `
 
 type GetInvoicesByClientRow struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	AmountPaid      float64   `db:"amount_paid" json:"amount_paid"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
-	ClientName      string    `db:"client_name" json:"client_name"`
+	ID              string      `db:"id" json:"id"`
+	ClientID        string      `db:"client_id" json:"client_id"`
+	InvoiceNumber   string      `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string      `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time   `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time   `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  float64     `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       float64     `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     float64     `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time   `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
+	AmountPaid      float64     `db:"amount_paid" json:"amount_paid"`
+	PaymentDate     interface{} `db:"payment_date" json:"payment_date"`
+	ClientName      string      `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetInvoicesByClient(ctx context.Context, clientName string) ([]GetInvoicesByClientRow, error) {
@@ -219,10 +221,11 @@ func (q *Queries) GetInvoicesByClient(ctx context.Context, clientName string) ([
 			&i.SubtotalAmount,
 			&i.GstAmount,
 			&i.TotalAmount,
-			&i.AmountPaid,
 			&i.GeneratedDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AmountPaid,
+			&i.PaymentDate,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -239,8 +242,8 @@ func (q *Queries) GetInvoicesByClient(ctx context.Context, clientName string) ([
 }
 
 const getInvoicesByPeriod = `-- name: GetInvoicesByPeriod :many
-SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.amount_paid, i.generated_date, i.created_at, i.updated_at, c.name as client_name
-FROM invoices i
+SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.generated_date, i.created_at, i.updated_at, i.amount_paid, i.payment_date, c.name as client_name
+FROM v_invoices i
 JOIN clients c ON i.client_id = c.id
 WHERE i.period_start_date = ?1 
   AND i.period_end_date = ?2
@@ -255,20 +258,21 @@ type GetInvoicesByPeriodParams struct {
 }
 
 type GetInvoicesByPeriodRow struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	AmountPaid      float64   `db:"amount_paid" json:"amount_paid"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
-	ClientName      string    `db:"client_name" json:"client_name"`
+	ID              string      `db:"id" json:"id"`
+	ClientID        string      `db:"client_id" json:"client_id"`
+	InvoiceNumber   string      `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string      `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time   `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time   `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  float64     `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       float64     `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     float64     `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time   `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
+	AmountPaid      float64     `db:"amount_paid" json:"amount_paid"`
+	PaymentDate     interface{} `db:"payment_date" json:"payment_date"`
+	ClientName      string      `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetInvoicesByPeriod(ctx context.Context, arg GetInvoicesByPeriodParams) ([]GetInvoicesByPeriodRow, error) {
@@ -290,10 +294,11 @@ func (q *Queries) GetInvoicesByPeriod(ctx context.Context, arg GetInvoicesByPeri
 			&i.SubtotalAmount,
 			&i.GstAmount,
 			&i.TotalAmount,
-			&i.AmountPaid,
 			&i.GeneratedDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AmountPaid,
+			&i.PaymentDate,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -310,8 +315,8 @@ func (q *Queries) GetInvoicesByPeriod(ctx context.Context, arg GetInvoicesByPeri
 }
 
 const getInvoicesByPeriodAndClient = `-- name: GetInvoicesByPeriodAndClient :many
-SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.amount_paid, i.generated_date, i.created_at, i.updated_at, c.name as client_name
-FROM invoices i
+SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.generated_date, i.created_at, i.updated_at, i.amount_paid, i.payment_date, c.name as client_name
+FROM v_invoices i
 JOIN clients c ON i.client_id = c.id
 WHERE i.period_start_date = ?1 
   AND i.period_end_date = ?2
@@ -328,20 +333,21 @@ type GetInvoicesByPeriodAndClientParams struct {
 }
 
 type GetInvoicesByPeriodAndClientRow struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	AmountPaid      float64   `db:"amount_paid" json:"amount_paid"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
-	ClientName      string    `db:"client_name" json:"client_name"`
+	ID              string      `db:"id" json:"id"`
+	ClientID        string      `db:"client_id" json:"client_id"`
+	InvoiceNumber   string      `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string      `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time   `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time   `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  float64     `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       float64     `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     float64     `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time   `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
+	AmountPaid      float64     `db:"amount_paid" json:"amount_paid"`
+	PaymentDate     interface{} `db:"payment_date" json:"payment_date"`
+	ClientName      string      `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetInvoicesByPeriodAndClient(ctx context.Context, arg GetInvoicesByPeriodAndClientParams) ([]GetInvoicesByPeriodAndClientRow, error) {
@@ -368,10 +374,11 @@ func (q *Queries) GetInvoicesByPeriodAndClient(ctx context.Context, arg GetInvoi
 			&i.SubtotalAmount,
 			&i.GstAmount,
 			&i.TotalAmount,
-			&i.AmountPaid,
 			&i.GeneratedDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AmountPaid,
+			&i.PaymentDate,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -583,28 +590,29 @@ func (q *Queries) GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Context
 }
 
 const listInvoices = `-- name: ListInvoices :many
-SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.amount_paid, i.generated_date, i.created_at, i.updated_at, c.name as client_name
-FROM invoices i
+SELECT i.id, i.client_id, i.invoice_number, i.period_type, i.period_start_date, i.period_end_date, i.subtotal_amount, i.gst_amount, i.total_amount, i.generated_date, i.created_at, i.updated_at, i.amount_paid, i.payment_date, c.name as client_name
+FROM v_invoices i
 JOIN clients c ON i.client_id = c.id
 ORDER BY i.generated_date DESC
 LIMIT ?1
 `
 
 type ListInvoicesRow struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	AmountPaid      float64   `db:"amount_paid" json:"amount_paid"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
-	ClientName      string    `db:"client_name" json:"client_name"`
+	ID              string      `db:"id" json:"id"`
+	ClientID        string      `db:"client_id" json:"client_id"`
+	InvoiceNumber   string      `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string      `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time   `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time   `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  float64     `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       float64     `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     float64     `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time   `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
+	AmountPaid      float64     `db:"amount_paid" json:"amount_paid"`
+	PaymentDate     interface{} `db:"payment_date" json:"payment_date"`
+	ClientName      string      `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) ListInvoices(ctx context.Context, limitCount int64) ([]ListInvoicesRow, error) {
@@ -626,10 +634,11 @@ func (q *Queries) ListInvoices(ctx context.Context, limitCount int64) ([]ListInv
 			&i.SubtotalAmount,
 			&i.GstAmount,
 			&i.TotalAmount,
-			&i.AmountPaid,
 			&i.GeneratedDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AmountPaid,
+			&i.PaymentDate,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -646,18 +655,24 @@ func (q *Queries) ListInvoices(ctx context.Context, limitCount int64) ([]ListInv
 }
 
 const payInvoice = `-- name: PayInvoice :exec
-update invoices
-set amount_paid = coalesce(amount_paid, 0) + coalesce(?1, 0)
-where id = ?2
+INSERT INTO payments (id, invoice_id, amount, payment_date)
+VALUES (?1, ?2, ?3, ?4)
 `
 
 type PayInvoiceParams struct {
-	Amount float64 `db:"amount" json:"amount"`
-	ID     string  `db:"id" json:"id"`
+	ID          string    `db:"id" json:"id"`
+	InvoiceID   string    `db:"invoice_id" json:"invoice_id"`
+	Amount      float64   `db:"amount" json:"amount"`
+	PaymentDate time.Time `db:"payment_date" json:"payment_date"`
 }
 
 func (q *Queries) PayInvoice(ctx context.Context, arg PayInvoiceParams) error {
-	_, err := q.db.ExecContext(ctx, payInvoice, arg.Amount, arg.ID)
+	_, err := q.db.ExecContext(ctx, payInvoice,
+		arg.ID,
+		arg.InvoiceID,
+		arg.Amount,
+		arg.PaymentDate,
+	)
 	return err
 }
 

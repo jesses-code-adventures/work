@@ -11,7 +11,7 @@ CREATE TABLE sessions (
     end_time DATETIME,
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, hourly_rate DECIMAL(10,2), full_work_summary TEXT, outside_git TEXT, invoice_id TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL, hourly_rate DECIMAL(10,2), full_work_summary TEXT, outside_git TEXT, invoice_id text,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 CREATE INDEX idx_sessions_client_id ON sessions(client_id);
@@ -29,27 +29,44 @@ CREATE TRIGGER sessions_updated_at
         UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 CREATE TABLE invoices (
-    id TEXT PRIMARY KEY NOT NULL, -- UUID v7
-    client_id TEXT NOT NULL,
-    invoice_number VARCHAR(50) UNIQUE NOT NULL,
-    period_type VARCHAR(20) NOT NULL, -- 'day', 'week', 'fortnight', 'month'
-    period_start_date DATE NOT NULL,
-    period_end_date DATE NOT NULL,
-    subtotal_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    gst_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    amount_paid DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    generated_date DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    FOREIGN KEY (client_id) REFERENCES clients(id)
+    id text primary key not null, -- uuid v7
+    client_id text not null,
+    invoice_number varchar(50) unique not null,
+    period_type varchar(20) not null, -- 'day', 'week', 'fortnight', 'month'
+    period_start_date date not null,
+    period_end_date date not null,
+    subtotal_amount decimal(10,2) not null default 0.00,
+    gst_amount decimal(10,2) not null default 0.00,
+    total_amount decimal(10,2) not null default 0.00,
+    generated_date datetime default current_timestamp not null,
+    created_at datetime default current_timestamp not null,
+    updated_at datetime default current_timestamp not null,
+    foreign key (client_id) references clients(id)
 );
-CREATE INDEX idx_invoices_client_id ON invoices(client_id);
-CREATE INDEX idx_invoices_invoice_number ON invoices(invoice_number);
-CREATE INDEX idx_invoices_period_dates ON invoices(period_start_date, period_end_date);
-CREATE INDEX idx_sessions_invoice_id ON sessions(invoice_id);
+CREATE INDEX idx_invoices_client_id on invoices(client_id);
+CREATE INDEX idx_invoices_invoice_number on invoices(invoice_number);
+CREATE INDEX idx_invoices_period_dates on invoices(period_start_date, period_end_date);
+CREATE INDEX idx_sessions_invoice_id on sessions(invoice_id);
 CREATE TRIGGER invoices_updated_at 
-    AFTER UPDATE ON invoices 
-    BEGIN
-        UPDATE invoices SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-    END;
+    after update on invoices 
+    begin
+        update invoices set updated_at = current_timestamp where id = new.id;
+    end;
+CREATE TABLE payments (
+	id text primary key not null, -- uuid v7
+	invoice_id text not null,
+	amount decimal(10,2) not null,
+	payment_date date not null,
+	created_at datetime default current_timestamp not null,
+	updated_at datetime default current_timestamp not null,
+	foreign key (invoice_id) references invoices(id)
+);
+CREATE VIEW v_invoices as
+select 
+	i.*,
+	cast(coalesce(sum(p.amount), 0.0) as real) as amount_paid,
+	max(p.created_at) as payment_date
+from invoices i
+left join payments p on p.invoice_id = i.id
+group by i.id
+/* v_invoices(id,client_id,invoice_number,period_type,period_start_date,period_end_date,subtotal_amount,gst_amount,total_amount,generated_date,created_at,updated_at,amount_paid,payment_date) */;

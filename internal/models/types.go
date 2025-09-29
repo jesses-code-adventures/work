@@ -43,19 +43,20 @@ type WorkSession struct {
 }
 
 type Invoice struct {
-	ID              string    `json:"id" db:"id"`
-	ClientID        string    `json:"client_id" db:"client_id"`
-	InvoiceNumber   string    `json:"invoice_number" db:"invoice_number"`
-	PeriodType      string    `json:"period_type" db:"period_type"`
-	PeriodStartDate time.Time `json:"period_start_date" db:"period_start_date"`
-	PeriodEndDate   time.Time `json:"period_end_date" db:"period_end_date"`
-	SubtotalAmount  float64   `json:"subtotal_amount" db:"subtotal_amount"`
-	GstAmount       float64   `json:"gst_amount" db:"gst_amount"`
-	TotalAmount     float64   `json:"total_amount" db:"total_amount"`
-	AmountPaid      float64   `json:"amount_paid" db:"amount_paid"`
-	GeneratedDate   time.Time `json:"generated_date" db:"generated_date"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+	ID              string     `json:"id" db:"id"`
+	ClientID        string     `json:"client_id" db:"client_id"`
+	InvoiceNumber   string     `json:"invoice_number" db:"invoice_number"`
+	PeriodType      string     `json:"period_type" db:"period_type"`
+	PeriodStartDate time.Time  `json:"period_start_date" db:"period_start_date"`
+	PeriodEndDate   time.Time  `json:"period_end_date" db:"period_end_date"`
+	SubtotalAmount  float64    `json:"subtotal_amount" db:"subtotal_amount"`
+	GstAmount       float64    `json:"gst_amount" db:"gst_amount"`
+	TotalAmount     float64    `json:"total_amount" db:"total_amount"`
+	AmountPaid      float64    `json:"amount_paid" db:"amount_paid"`
+	PaymentDate     *time.Time `json:"payment_date,omitempty" db:"payment_date"`
+	GeneratedDate   time.Time  `json:"generated_date" db:"generated_date"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 
 	ClientName string `json:"client_name,omitempty" db:"client_name"`
 }

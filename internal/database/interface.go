@@ -50,7 +50,7 @@ type DB interface {
 	DeleteSessionsByDateRange(ctx context.Context, fromDate, toDate string) error
 
 	// Invoice operations
-	CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total, amountPaid float64) (*models.Invoice, error)
+	CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total float64) (*models.Invoice, error)
 	GetInvoiceByID(ctx context.Context, invoiceID string) (*models.Invoice, error)
 	PayInvoice(ctx context.Context, param db.PayInvoiceParams) error
 	GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (*models.Invoice, error)

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 
 	"github.com/jesses-code-adventures/work/internal/service"
@@ -90,6 +92,7 @@ func newInvoicesListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 
 func newInvoicesPayCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var amount float64
+	var dateStr string
 
 	cmd := &cobra.Command{
 		Use:   "pay",
@@ -99,11 +102,16 @@ func newInvoicesPayCmd(timesheetService *service.TimesheetService) *cobra.Comman
 	}
 
 	cmd.Flags().Float64VarP(&amount, "amount", "a", 0.0, "Amount being paid, defaulting to the total amount of the invoice")
+	cmd.Flags().StringVarP(&dateStr, "date", "d", "", "Date the payment was made (YYYY-MM-DD)")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		id := args[0]
-		return timesheetService.PayInvoice(ctx, id, amount)
+		date, err := time.Parse("2006-01-02", dateStr)
+		if err != nil && dateStr != "" {
+			return err
+		}
+		return timesheetService.PayInvoice(ctx, id, amount, date)
 	}
 
 	return cmd

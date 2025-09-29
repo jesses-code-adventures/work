@@ -682,7 +682,7 @@ func (s *SQLiteDB) UpdateSessionOutsideGit(ctx context.Context, sessionID string
 
 // Invoice methods
 
-func (s *SQLiteDB) CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total, amountPaid float64) (*models.Invoice, error) {
+func (s *SQLiteDB) CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total float64) (*models.Invoice, error) {
 	invoice, err := s.queries.CreateInvoice(ctx, db.CreateInvoiceParams{
 		ID:              models.NewUUID(),
 		ClientID:        clientID,
@@ -693,7 +693,6 @@ func (s *SQLiteDB) CreateInvoice(ctx context.Context, clientID, invoiceNumber, p
 		SubtotalAmount:  subtotal,
 		GstAmount:       gst,
 		TotalAmount:     total,
-		AmountPaid:      amountPaid,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create invoice: %w", err)
@@ -924,6 +923,12 @@ func (s *SQLiteDB) PayInvoice(ctx context.Context, param db.PayInvoiceParams) er
 }
 
 func (s *SQLiteDB) convertDBInvoicesByPeriodAndClientRowToModel(invoice db.GetInvoicesByPeriodAndClientRow) *models.Invoice {
+	var paymentDate *time.Time
+	if invoice.PaymentDate != nil {
+		if val, ok := invoice.PaymentDate.(time.Time); ok {
+			paymentDate = &val
+		}
+	}
 
 	return &models.Invoice{
 		ID:              invoice.ID,
@@ -937,6 +942,7 @@ func (s *SQLiteDB) convertDBInvoicesByPeriodAndClientRowToModel(invoice db.GetIn
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
 		AmountPaid:      invoice.AmountPaid,
+		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
 		ClientName:      invoice.ClientName,
@@ -957,13 +963,18 @@ func (s *SQLiteDB) convertDBInvoiceToModel(invoice db.Invoice) *models.Invoice {
 		GstAmount:       invoice.GstAmount,
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
-		AmountPaid:      invoice.AmountPaid,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
 	}
 }
 
 func (s *SQLiteDB) convertDBInvoiceRowToModel(invoice db.GetInvoiceByIDRow) *models.Invoice {
+	var paymentDate *time.Time
+	if invoice.PaymentDate != nil {
+		if val, ok := invoice.PaymentDate.(time.Time); ok {
+			paymentDate = &val
+		}
+	}
 
 	return &models.Invoice{
 		ID:              invoice.ID,
@@ -977,6 +988,7 @@ func (s *SQLiteDB) convertDBInvoiceRowToModel(invoice db.GetInvoiceByIDRow) *mod
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
 		AmountPaid:      invoice.AmountPaid,
+		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
 		ClientName:      invoice.ClientName,
@@ -984,6 +996,12 @@ func (s *SQLiteDB) convertDBInvoiceRowToModel(invoice db.GetInvoiceByIDRow) *mod
 }
 
 func (s *SQLiteDB) convertDBInvoiceListRowToModel(invoice db.ListInvoicesRow) *models.Invoice {
+	var paymentDate *time.Time
+	if invoice.PaymentDate != nil {
+		if val, ok := invoice.PaymentDate.(time.Time); ok {
+			paymentDate = &val
+		}
+	}
 
 	return &models.Invoice{
 		ID:              invoice.ID,
@@ -997,6 +1015,7 @@ func (s *SQLiteDB) convertDBInvoiceListRowToModel(invoice db.ListInvoicesRow) *m
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
 		AmountPaid:      invoice.AmountPaid,
+		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
 		ClientName:      invoice.ClientName,
@@ -1004,6 +1023,12 @@ func (s *SQLiteDB) convertDBInvoiceListRowToModel(invoice db.ListInvoicesRow) *m
 }
 
 func (s *SQLiteDB) convertDBInvoicesByClientRowToModel(invoice db.GetInvoicesByClientRow) *models.Invoice {
+	var paymentDate *time.Time
+	if invoice.PaymentDate != nil {
+		if val, ok := invoice.PaymentDate.(time.Time); ok {
+			paymentDate = &val
+		}
+	}
 
 	return &models.Invoice{
 		ID:              invoice.ID,
@@ -1017,6 +1042,7 @@ func (s *SQLiteDB) convertDBInvoicesByClientRowToModel(invoice db.GetInvoicesByC
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
 		AmountPaid:      invoice.AmountPaid,
+		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
 		ClientName:      invoice.ClientName,
@@ -1024,6 +1050,12 @@ func (s *SQLiteDB) convertDBInvoicesByClientRowToModel(invoice db.GetInvoicesByC
 }
 
 func (s *SQLiteDB) convertDBInvoicesByPeriodRowToModel(invoice db.GetInvoicesByPeriodRow) *models.Invoice {
+	var paymentDate *time.Time
+	if invoice.PaymentDate != nil {
+		if val, ok := invoice.PaymentDate.(time.Time); ok {
+			paymentDate = &val
+		}
+	}
 
 	return &models.Invoice{
 		ID:              invoice.ID,
@@ -1037,6 +1069,7 @@ func (s *SQLiteDB) convertDBInvoicesByPeriodRowToModel(invoice db.GetInvoicesByP
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
 		AmountPaid:      invoice.AmountPaid,
+		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
 		ClientName:      invoice.ClientName,
@@ -1044,6 +1077,12 @@ func (s *SQLiteDB) convertDBInvoicesByPeriodRowToModel(invoice db.GetInvoicesByP
 }
 
 func (s *SQLiteDB) convertDBInvoiceByNumberRowToModel(invoice db.GetInvoiceByNumberRow) *models.Invoice {
+	var paymentDate *time.Time
+	if invoice.PaymentDate != nil {
+		if val, ok := invoice.PaymentDate.(time.Time); ok {
+			paymentDate = &val
+		}
+	}
 
 	return &models.Invoice{
 		ID:              invoice.ID,
@@ -1057,6 +1096,7 @@ func (s *SQLiteDB) convertDBInvoiceByNumberRowToModel(invoice db.GetInvoiceByNum
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
 		AmountPaid:      invoice.AmountPaid,
+		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
 		ClientName:      invoice.ClientName,
