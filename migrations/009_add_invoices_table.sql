@@ -41,7 +41,7 @@ create view v_invoices as
 select 
 	i.*,
 	cast(coalesce(sum(p.amount), 0.0) as real) as amount_paid,
-	max(p.created_at) as payment_date
+	max(p.payment_date) as payment_date
 from invoices i
 left join payments p on p.invoice_id = i.id
 group by i.id;

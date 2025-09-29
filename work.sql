@@ -62,11 +62,11 @@ CREATE TABLE payments (
 	foreign key (invoice_id) references invoices(id)
 );
 CREATE VIEW v_invoices as
-select 
+SELECT 
 	i.*,
-	cast(coalesce(sum(p.amount), 0.0) as real) as amount_paid,
-	max(p.created_at) as payment_date
-from invoices i
-left join payments p on p.invoice_id = i.id
-group by i.id
+	CAST(COALESCE(SUM(p.amount), 0.0) AS REAL) AS amount_paid,
+	MAX(p.payment_date) AS payment_date
+FROM invoices i
+LEFT JOIN payments p ON p.invoice_id = i.id
+GROUP BY i.id
 /* v_invoices(id,client_id,invoice_number,period_type,period_start_date,period_end_date,subtotal_amount,gst_amount,total_amount,generated_date,created_at,updated_at,amount_paid,payment_date) */;

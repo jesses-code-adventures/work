@@ -486,18 +486,27 @@ func (s *TimesheetService) wrapDescriptionText(text string, maxChars int) []stri
 
 // ListInvoices displays a list of invoices with client, period, amounts and payment status
 func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, clientName string, unpaidOnly bool) error {
+	invoices, err := s.GetInvoices(ctx, limit, clientName, unpaidOnly)
+	if err != nil {
+		return err
+	}
+	s.PrintInvoices(invoices, unpaidOnly)
+	return nil
+}
+
+func (s *TimesheetService) GetInvoices(ctx context.Context, limit int32, clientName string, unpaidOnly bool) ([]*models.Invoice, error) {
 	var invoices []*models.Invoice
 	var err error
 
 	if clientName != "" {
 		invoices, err = s.db.GetInvoicesByClient(ctx, clientName)
 		if err != nil {
-			return fmt.Errorf("failed to get invoices for client %s: %w", clientName, err)
+			return []*models.Invoice{}, fmt.Errorf("failed to get invoices for client %s: %w", clientName, err)
 		}
 	} else {
 		invoices, err = s.db.ListInvoices(ctx, limit)
 		if err != nil {
-			return fmt.Errorf("failed to list invoices: %w", err)
+			return []*models.Invoice{}, fmt.Errorf("failed to list invoices: %w", err)
 		}
 	}
 
@@ -512,22 +521,25 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 		invoices = unpaidInvoices
 	}
 
+	return invoices, nil
+}
+
+func (s *TimesheetService) PrintInvoices(invoices []*models.Invoice, unpaidOnly bool) {
 	if len(invoices) == 0 {
 		if unpaidOnly {
 			fmt.Println("No unpaid invoices found.")
 		} else {
 			fmt.Println("No invoices found.")
 		}
-		return nil
 	}
 
 	// Print header
 	if unpaidOnly {
 		fmt.Println("Unpaid Invoices:")
 	}
-	fmt.Printf("%-38s %-15s %-10s %-12s %-12s %-12s %-12s %-16s %-12s %-12s\n",
-		"ID", "CLIENT", "PERIOD", "FROM", "TO", "SUBTOTAL", "TOTAL", "AMOUNT_PAID", "STATUS", "PAYMENT_DATE")
-	fmt.Println(strings.Repeat("-", 161))
+	fmt.Printf("%-38s %-15s %-10s %-12s %-12s %-12s %-12s %-16s %-18s %-12s\n",
+		"ID", "CLIENT", "PERIOD", "FROM", "TO", "SUBTOTAL", "TOTAL", "AMOUNT_PAID", "PAYMENT_DATE", "STATUS")
+	fmt.Println(strings.Repeat("-", 167))
 
 	// Print each invoice
 	for _, invoice := range invoices {
@@ -535,7 +547,7 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 		if invoice.AmountPaid >= invoice.TotalAmount {
 			paidStatus = "PAID"
 		} else if invoice.AmountPaid > 0 {
-			paidStatus = fmt.Sprintf("$%.2f", invoice.AmountPaid)
+			paidStatus = "PARTIALLY PAID"
 		} else {
 			paidStatus = "UNPAID"
 		}
@@ -545,7 +557,7 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 			paymentDate = invoice.PaymentDate.Format("2006-01-02")
 		}
 
-		fmt.Printf("%-38s %-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-16s %-12s %-12s\n",
+		fmt.Printf("%-38s %-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-16s %-18s %-12s\n",
 			invoice.ID,
 			truncateString(invoice.ClientName, 14),
 			invoice.PeriodType,
@@ -554,12 +566,10 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 			invoice.SubtotalAmount,
 			invoice.TotalAmount,
 			fmt.Sprintf("$%.2f", invoice.AmountPaid),
-			paidStatus,
 			paymentDate,
+			paidStatus,
 		)
 	}
-
-	return nil
 }
 
 func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount float64, date time.Time) error {
