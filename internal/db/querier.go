@@ -6,27 +6,41 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 type Querier interface {
+	ClearSessionInvoiceIDs(ctx context.Context, invoiceID sql.NullString) error
 	CreateClient(ctx context.Context, arg CreateClientParams) (Client, error)
+	CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	DeleteAllSessions(ctx context.Context) error
+	DeleteInvoice(ctx context.Context, id string) error
 	DeleteSessionsByDateRange(ctx context.Context, arg DeleteSessionsByDateRangeParams) error
 	GetActiveSession(ctx context.Context) (GetActiveSessionRow, error)
 	GetClientByID(ctx context.Context, id string) (Client, error)
 	GetClientByName(ctx context.Context, name string) (Client, error)
 	GetClientsWithDirectories(ctx context.Context) ([]Client, error)
+	GetInvoiceByID(ctx context.Context, id string) (GetInvoiceByIDRow, error)
+	GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (GetInvoiceByNumberRow, error)
+	GetInvoicesByClient(ctx context.Context, clientName string) ([]GetInvoicesByClientRow, error)
+	GetInvoicesByPeriod(ctx context.Context, arg GetInvoicesByPeriodParams) ([]GetInvoicesByPeriodRow, error)
+	GetInvoicesByPeriodAndClient(ctx context.Context, arg GetInvoicesByPeriodAndClientParams) ([]GetInvoicesByPeriodAndClientRow, error)
 	GetSessionByID(ctx context.Context, id string) (GetSessionByIDRow, error)
 	GetSessionsByClient(ctx context.Context, clientName string) ([]GetSessionsByClientRow, error)
 	GetSessionsByDateRange(ctx context.Context, arg GetSessionsByDateRangeParams) ([]GetSessionsByDateRangeRow, error)
+	GetSessionsByInvoiceID(ctx context.Context, invoiceID sql.NullString) ([]GetSessionsByInvoiceIDRow, error)
+	GetSessionsForPeriodWithoutInvoice(ctx context.Context, arg GetSessionsForPeriodWithoutInvoiceParams) ([]GetSessionsForPeriodWithoutInvoiceRow, error)
+	GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Context, arg GetSessionsForPeriodWithoutInvoiceByClientParams) ([]GetSessionsForPeriodWithoutInvoiceByClientRow, error)
 	GetSessionsWithoutDescription(ctx context.Context, arg GetSessionsWithoutDescriptionParams) ([]GetSessionsWithoutDescriptionRow, error)
 	ListClients(ctx context.Context) ([]Client, error)
+	ListInvoices(ctx context.Context, limitCount int64) ([]ListInvoicesRow, error)
 	ListRecentSessions(ctx context.Context, limitCount int64) ([]ListRecentSessionsRow, error)
 	ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error)
 	StopSession(ctx context.Context, arg StopSessionParams) (Session, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	UpdateSessionDescription(ctx context.Context, arg UpdateSessionDescriptionParams) (Session, error)
+	UpdateSessionInvoiceID(ctx context.Context, arg UpdateSessionInvoiceIDParams) error
 	UpdateSessionOutsideGit(ctx context.Context, arg UpdateSessionOutsideGitParams) (Session, error)
 }
 

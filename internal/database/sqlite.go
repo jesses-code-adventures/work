@@ -679,3 +679,378 @@ func (s *SQLiteDB) UpdateSessionOutsideGit(ctx context.Context, sessionID string
 		UpdatedAt:       session.UpdatedAt,
 	}, nil
 }
+
+// Invoice methods
+
+func (s *SQLiteDB) CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total, amountPaid float64) (*models.Invoice, error) {
+	invoice, err := s.queries.CreateInvoice(ctx, db.CreateInvoiceParams{
+		ID:              models.NewUUID(),
+		ClientID:        clientID,
+		InvoiceNumber:   invoiceNumber,
+		PeriodType:      periodType,
+		PeriodStartDate: periodStart,
+		PeriodEndDate:   periodEnd,
+		SubtotalAmount:  subtotal,
+		GstAmount:       gst,
+		TotalAmount:     total,
+		AmountPaid:      amountPaid,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create invoice: %w", err)
+	}
+
+	return s.convertDBInvoiceToModel(invoice), nil
+}
+
+func (s *SQLiteDB) GetInvoiceByID(ctx context.Context, invoiceID string) (*models.Invoice, error) {
+	invoice, err := s.queries.GetInvoiceByID(ctx, invoiceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invoice by ID: %w", err)
+	}
+
+	return s.convertDBInvoiceRowToModel(invoice), nil
+}
+
+func (s *SQLiteDB) GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (*models.Invoice, error) {
+	invoice, err := s.queries.GetInvoiceByNumber(ctx, invoiceNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invoice by number: %w", err)
+	}
+
+	return s.convertDBInvoiceByNumberRowToModel(invoice), nil
+}
+
+func (s *SQLiteDB) ListInvoices(ctx context.Context, limit int32) ([]*models.Invoice, error) {
+	invoices, err := s.queries.ListInvoices(ctx, int64(limit))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list invoices: %w", err)
+	}
+
+	result := make([]*models.Invoice, len(invoices))
+	for i, invoice := range invoices {
+		result[i] = s.convertDBInvoiceListRowToModel(invoice)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) GetInvoicesByClient(ctx context.Context, clientName string) ([]*models.Invoice, error) {
+	invoices, err := s.queries.GetInvoicesByClient(ctx, clientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invoices by client: %w", err)
+	}
+
+	result := make([]*models.Invoice, len(invoices))
+	for i, invoice := range invoices {
+		result[i] = s.convertDBInvoicesByClientRowToModel(invoice)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) GetInvoicesByPeriod(ctx context.Context, periodStart, periodEnd time.Time, periodType string) ([]*models.Invoice, error) {
+	invoices, err := s.queries.GetInvoicesByPeriod(ctx, db.GetInvoicesByPeriodParams{
+		PeriodStartDate: periodStart,
+		PeriodEndDate:   periodEnd,
+		PeriodType:      periodType,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invoices by period: %w", err)
+	}
+
+	result := make([]*models.Invoice, len(invoices))
+	for i, invoice := range invoices {
+		result[i] = s.convertDBInvoicesByPeriodRowToModel(invoice)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) DeleteInvoice(ctx context.Context, invoiceID string) error {
+	err := s.queries.DeleteInvoice(ctx, invoiceID)
+	if err != nil {
+		return fmt.Errorf("failed to delete invoice: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteDB) GetSessionsForPeriodWithoutInvoice(ctx context.Context, startDate, endDate time.Time) ([]*models.WorkSession, error) {
+	sessions, err := s.queries.GetSessionsForPeriodWithoutInvoice(ctx, db.GetSessionsForPeriodWithoutInvoiceParams{
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions for period without invoice: %w", err)
+	}
+
+	result := make([]*models.WorkSession, len(sessions))
+	for i, session := range sessions {
+		var sessionRate *float64
+		if session.HourlyRate.Valid {
+			sessionRate = &session.HourlyRate.Float64
+		}
+
+		result[i] = &models.WorkSession{
+			ID:              session.ID,
+			ClientID:        session.ClientID,
+			StartTime:       session.StartTime,
+			EndTime:         nullTimeToPtr(session.EndTime),
+			Description:     nullStringToPtr(session.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(session.OutsideGit),
+			InvoiceID:       nullStringToPtr(session.InvoiceID),
+			CreatedAt:       session.CreatedAt,
+			UpdatedAt:       session.UpdatedAt,
+			ClientName:      session.ClientName,
+		}
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) GetSessionsByInvoiceID(ctx context.Context, invoiceID string) ([]*models.WorkSession, error) {
+	sessions, err := s.queries.GetSessionsByInvoiceID(ctx, sql.NullString{String: invoiceID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions by invoice ID: %w", err)
+	}
+
+	result := make([]*models.WorkSession, len(sessions))
+	for i, session := range sessions {
+		var sessionRate *float64
+		if session.HourlyRate.Valid {
+			sessionRate = &session.HourlyRate.Float64
+		}
+
+		result[i] = &models.WorkSession{
+			ID:              session.ID,
+			ClientID:        session.ClientID,
+			StartTime:       session.StartTime,
+			EndTime:         nullTimeToPtr(session.EndTime),
+			Description:     nullStringToPtr(session.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(session.OutsideGit),
+			InvoiceID:       nullStringToPtr(session.InvoiceID),
+			CreatedAt:       session.CreatedAt,
+			UpdatedAt:       session.UpdatedAt,
+			ClientName:      session.ClientName,
+		}
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) UpdateSessionInvoiceID(ctx context.Context, sessionID, invoiceID string) error {
+	err := s.queries.UpdateSessionInvoiceID(ctx, db.UpdateSessionInvoiceIDParams{
+		InvoiceID: sql.NullString{String: invoiceID, Valid: true},
+		SessionID: sessionID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update session invoice ID: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteDB) ClearSessionInvoiceIDs(ctx context.Context, invoiceID string) error {
+	err := s.queries.ClearSessionInvoiceIDs(ctx, sql.NullString{String: invoiceID, Valid: true})
+	if err != nil {
+		return fmt.Errorf("failed to clear session invoice IDs: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteDB) GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Context, startDate, endDate time.Time, clientName string) ([]*models.WorkSession, error) {
+	sessions, err := s.queries.GetSessionsForPeriodWithoutInvoiceByClient(ctx, db.GetSessionsForPeriodWithoutInvoiceByClientParams{
+		StartDate:  startDate,
+		EndDate:    endDate,
+		ClientName: clientName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions for period without invoice by client: %w", err)
+	}
+
+	result := make([]*models.WorkSession, len(sessions))
+	for i, session := range sessions {
+		var sessionRate *float64
+		if session.HourlyRate.Valid {
+			sessionRate = &session.HourlyRate.Float64
+		}
+
+		result[i] = &models.WorkSession{
+			ID:              session.ID,
+			ClientID:        session.ClientID,
+			StartTime:       session.StartTime,
+			EndTime:         nullTimeToPtr(session.EndTime),
+			Description:     nullStringToPtr(session.Description),
+			HourlyRate:      sessionRate,
+			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
+			OutsideGit:      nullStringToPtr(session.OutsideGit),
+			InvoiceID:       nullStringToPtr(session.InvoiceID),
+			CreatedAt:       session.CreatedAt,
+			UpdatedAt:       session.UpdatedAt,
+			ClientName:      session.ClientName,
+		}
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) GetInvoicesByPeriodAndClient(ctx context.Context, periodStart, periodEnd time.Time, periodType, clientName string) ([]*models.Invoice, error) {
+	invoices, err := s.queries.GetInvoicesByPeriodAndClient(ctx, db.GetInvoicesByPeriodAndClientParams{
+		PeriodStartDate: periodStart,
+		PeriodEndDate:   periodEnd,
+		PeriodType:      periodType,
+		ClientName:      clientName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invoices by period and client: %w", err)
+	}
+
+	result := make([]*models.Invoice, len(invoices))
+	for i, invoice := range invoices {
+		result[i] = s.convertDBInvoicesByPeriodAndClientRowToModel(invoice)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) convertDBInvoicesByPeriodAndClientRowToModel(invoice db.GetInvoicesByPeriodAndClientRow) *models.Invoice {
+
+	return &models.Invoice{
+		ID:              invoice.ID,
+		ClientID:        invoice.ClientID,
+		InvoiceNumber:   invoice.InvoiceNumber,
+		PeriodType:      invoice.PeriodType,
+		PeriodStartDate: invoice.PeriodStartDate,
+		PeriodEndDate:   invoice.PeriodEndDate,
+		SubtotalAmount:  invoice.SubtotalAmount,
+		GstAmount:       invoice.GstAmount,
+		TotalAmount:     invoice.TotalAmount,
+		GeneratedDate:   invoice.GeneratedDate,
+		AmountPaid:      invoice.AmountPaid,
+		CreatedAt:       invoice.CreatedAt,
+		UpdatedAt:       invoice.UpdatedAt,
+		ClientName:      invoice.ClientName,
+	}
+}
+
+// Helper methods for converting DB types to models
+
+func (s *SQLiteDB) convertDBInvoiceToModel(invoice db.Invoice) *models.Invoice {
+	return &models.Invoice{
+		ID:              invoice.ID,
+		ClientID:        invoice.ClientID,
+		InvoiceNumber:   invoice.InvoiceNumber,
+		PeriodType:      invoice.PeriodType,
+		PeriodStartDate: invoice.PeriodStartDate,
+		PeriodEndDate:   invoice.PeriodEndDate,
+		SubtotalAmount:  invoice.SubtotalAmount,
+		GstAmount:       invoice.GstAmount,
+		TotalAmount:     invoice.TotalAmount,
+		GeneratedDate:   invoice.GeneratedDate,
+		AmountPaid:      invoice.AmountPaid,
+		CreatedAt:       invoice.CreatedAt,
+		UpdatedAt:       invoice.UpdatedAt,
+	}
+}
+
+func (s *SQLiteDB) convertDBInvoiceRowToModel(invoice db.GetInvoiceByIDRow) *models.Invoice {
+
+	return &models.Invoice{
+		ID:              invoice.ID,
+		ClientID:        invoice.ClientID,
+		InvoiceNumber:   invoice.InvoiceNumber,
+		PeriodType:      invoice.PeriodType,
+		PeriodStartDate: invoice.PeriodStartDate,
+		PeriodEndDate:   invoice.PeriodEndDate,
+		SubtotalAmount:  invoice.SubtotalAmount,
+		GstAmount:       invoice.GstAmount,
+		TotalAmount:     invoice.TotalAmount,
+		GeneratedDate:   invoice.GeneratedDate,
+		AmountPaid:      invoice.AmountPaid,
+		CreatedAt:       invoice.CreatedAt,
+		UpdatedAt:       invoice.UpdatedAt,
+		ClientName:      invoice.ClientName,
+	}
+}
+
+func (s *SQLiteDB) convertDBInvoiceListRowToModel(invoice db.ListInvoicesRow) *models.Invoice {
+
+	return &models.Invoice{
+		ID:              invoice.ID,
+		ClientID:        invoice.ClientID,
+		InvoiceNumber:   invoice.InvoiceNumber,
+		PeriodType:      invoice.PeriodType,
+		PeriodStartDate: invoice.PeriodStartDate,
+		PeriodEndDate:   invoice.PeriodEndDate,
+		SubtotalAmount:  invoice.SubtotalAmount,
+		GstAmount:       invoice.GstAmount,
+		TotalAmount:     invoice.TotalAmount,
+		GeneratedDate:   invoice.GeneratedDate,
+		AmountPaid:      invoice.AmountPaid,
+		CreatedAt:       invoice.CreatedAt,
+		UpdatedAt:       invoice.UpdatedAt,
+		ClientName:      invoice.ClientName,
+	}
+}
+
+func (s *SQLiteDB) convertDBInvoicesByClientRowToModel(invoice db.GetInvoicesByClientRow) *models.Invoice {
+
+	return &models.Invoice{
+		ID:              invoice.ID,
+		ClientID:        invoice.ClientID,
+		InvoiceNumber:   invoice.InvoiceNumber,
+		PeriodType:      invoice.PeriodType,
+		PeriodStartDate: invoice.PeriodStartDate,
+		PeriodEndDate:   invoice.PeriodEndDate,
+		SubtotalAmount:  invoice.SubtotalAmount,
+		GstAmount:       invoice.GstAmount,
+		TotalAmount:     invoice.TotalAmount,
+		GeneratedDate:   invoice.GeneratedDate,
+		AmountPaid:      invoice.AmountPaid,
+		CreatedAt:       invoice.CreatedAt,
+		UpdatedAt:       invoice.UpdatedAt,
+		ClientName:      invoice.ClientName,
+	}
+}
+
+func (s *SQLiteDB) convertDBInvoicesByPeriodRowToModel(invoice db.GetInvoicesByPeriodRow) *models.Invoice {
+
+	return &models.Invoice{
+		ID:              invoice.ID,
+		ClientID:        invoice.ClientID,
+		InvoiceNumber:   invoice.InvoiceNumber,
+		PeriodType:      invoice.PeriodType,
+		PeriodStartDate: invoice.PeriodStartDate,
+		PeriodEndDate:   invoice.PeriodEndDate,
+		SubtotalAmount:  invoice.SubtotalAmount,
+		GstAmount:       invoice.GstAmount,
+		TotalAmount:     invoice.TotalAmount,
+		GeneratedDate:   invoice.GeneratedDate,
+		AmountPaid:      invoice.AmountPaid,
+		CreatedAt:       invoice.CreatedAt,
+		UpdatedAt:       invoice.UpdatedAt,
+		ClientName:      invoice.ClientName,
+	}
+}
+
+func (s *SQLiteDB) convertDBInvoiceByNumberRowToModel(invoice db.GetInvoiceByNumberRow) *models.Invoice {
+
+	return &models.Invoice{
+		ID:              invoice.ID,
+		ClientID:        invoice.ClientID,
+		InvoiceNumber:   invoice.InvoiceNumber,
+		PeriodType:      invoice.PeriodType,
+		PeriodStartDate: invoice.PeriodStartDate,
+		PeriodEndDate:   invoice.PeriodEndDate,
+		SubtotalAmount:  invoice.SubtotalAmount,
+		GstAmount:       invoice.GstAmount,
+		TotalAmount:     invoice.TotalAmount,
+		GeneratedDate:   invoice.GeneratedDate,
+		AmountPaid:      invoice.AmountPaid,
+		CreatedAt:       invoice.CreatedAt,
+		UpdatedAt:       invoice.UpdatedAt,
+		ClientName:      invoice.ClientName,
+	}
+}

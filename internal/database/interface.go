@@ -47,4 +47,19 @@ type DB interface {
 	UpdateSessionOutsideGit(ctx context.Context, sessionID string, outsideGit string) (*models.WorkSession, error)
 	DeleteAllSessions(ctx context.Context) error
 	DeleteSessionsByDateRange(ctx context.Context, fromDate, toDate string) error
+
+	// Invoice operations
+	CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total, amountPaid float64) (*models.Invoice, error)
+	GetInvoiceByID(ctx context.Context, invoiceID string) (*models.Invoice, error)
+	GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (*models.Invoice, error)
+	ListInvoices(ctx context.Context, limit int32) ([]*models.Invoice, error)
+	GetInvoicesByClient(ctx context.Context, clientName string) ([]*models.Invoice, error)
+	GetInvoicesByPeriod(ctx context.Context, periodStart, periodEnd time.Time, periodType string) ([]*models.Invoice, error)
+	DeleteInvoice(ctx context.Context, invoiceID string) error
+	GetSessionsForPeriodWithoutInvoice(ctx context.Context, startDate, endDate time.Time) ([]*models.WorkSession, error)
+	GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Context, startDate, endDate time.Time, clientName string) ([]*models.WorkSession, error)
+	GetSessionsByInvoiceID(ctx context.Context, invoiceID string) ([]*models.WorkSession, error)
+	GetInvoicesByPeriodAndClient(ctx context.Context, periodStart, periodEnd time.Time, periodType, clientName string) ([]*models.Invoice, error)
+	UpdateSessionInvoiceID(ctx context.Context, sessionID, invoiceID string) error
+	ClearSessionInvoiceIDs(ctx context.Context, invoiceID string) error
 }

@@ -35,8 +35,27 @@ type WorkSession struct {
 	HourlyRate      *float64   `json:"hourly_rate,omitempty" db:"hourly_rate"`
 	FullWorkSummary *string    `json:"full_work_summary,omitempty" db:"full_work_summary"`
 	OutsideGit      *string    `json:"outside_git,omitempty" db:"outside_git"`
+	InvoiceID       *string    `json:"invoice_id,omitempty" db:"invoice_id"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+
+	ClientName string `json:"client_name,omitempty" db:"client_name"`
+}
+
+type Invoice struct {
+	ID              string    `json:"id" db:"id"`
+	ClientID        string    `json:"client_id" db:"client_id"`
+	InvoiceNumber   string    `json:"invoice_number" db:"invoice_number"`
+	PeriodType      string    `json:"period_type" db:"period_type"`
+	PeriodStartDate time.Time `json:"period_start_date" db:"period_start_date"`
+	PeriodEndDate   time.Time `json:"period_end_date" db:"period_end_date"`
+	SubtotalAmount  float64   `json:"subtotal_amount" db:"subtotal_amount"`
+	GstAmount       float64   `json:"gst_amount" db:"gst_amount"`
+	TotalAmount     float64   `json:"total_amount" db:"total_amount"`
+	AmountPaid      float64   `json:"amount_paid" db:"amount_paid"`
+	GeneratedDate   time.Time `json:"generated_date" db:"generated_date"`
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 
 	ClientName string `json:"client_name,omitempty" db:"client_name"`
 }

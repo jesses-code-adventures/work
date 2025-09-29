@@ -14,7 +14,7 @@ import (
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id, client_id, start_time, description, hourly_rate)
 VALUES (?1, ?2, ?3, ?4, ?5)
-RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git
+RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git, invoice_id
 `
 
 type CreateSessionParams struct {
@@ -45,6 +45,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.HourlyRate,
 		&i.FullWorkSummary,
 		&i.OutsideGit,
+		&i.InvoiceID,
 	)
 	return i, err
 }
@@ -75,7 +76,7 @@ func (q *Queries) DeleteSessionsByDateRange(ctx context.Context, arg DeleteSessi
 }
 
 const getActiveSession = `-- name: GetActiveSession :one
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE s.end_time IS NULL
@@ -94,6 +95,7 @@ type GetActiveSessionRow struct {
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
@@ -111,13 +113,14 @@ func (q *Queries) GetActiveSession(ctx context.Context) (GetActiveSessionRow, er
 		&i.HourlyRate,
 		&i.FullWorkSummary,
 		&i.OutsideGit,
+		&i.InvoiceID,
 		&i.ClientName,
 	)
 	return i, err
 }
 
 const getSessionByID = `-- name: GetSessionByID :one
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE s.id = ?1
@@ -134,6 +137,7 @@ type GetSessionByIDRow struct {
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
@@ -151,13 +155,14 @@ func (q *Queries) GetSessionByID(ctx context.Context, id string) (GetSessionByID
 		&i.HourlyRate,
 		&i.FullWorkSummary,
 		&i.OutsideGit,
+		&i.InvoiceID,
 		&i.ClientName,
 	)
 	return i, err
 }
 
 const getSessionsByClient = `-- name: GetSessionsByClient :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE c.name = ?1
@@ -175,6 +180,7 @@ type GetSessionsByClientRow struct {
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
@@ -198,6 +204,7 @@ func (q *Queries) GetSessionsByClient(ctx context.Context, clientName string) ([
 			&i.HourlyRate,
 			&i.FullWorkSummary,
 			&i.OutsideGit,
+			&i.InvoiceID,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -214,7 +221,7 @@ func (q *Queries) GetSessionsByClient(ctx context.Context, clientName string) ([
 }
 
 const getSessionsByDateRange = `-- name: GetSessionsByDateRange :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE s.start_time >= ?1 AND s.start_time <= ?2
@@ -237,6 +244,7 @@ type GetSessionsByDateRangeRow struct {
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
@@ -260,6 +268,7 @@ func (q *Queries) GetSessionsByDateRange(ctx context.Context, arg GetSessionsByD
 			&i.HourlyRate,
 			&i.FullWorkSummary,
 			&i.OutsideGit,
+			&i.InvoiceID,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -276,7 +285,7 @@ func (q *Queries) GetSessionsByDateRange(ctx context.Context, arg GetSessionsByD
 }
 
 const getSessionsWithoutDescription = `-- name: GetSessionsWithoutDescription :many
-select s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+select s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
 from sessions s
 join clients c on s.client_id = c.id
 where s.end_time is not null 
@@ -302,6 +311,7 @@ type GetSessionsWithoutDescriptionRow struct {
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
@@ -325,6 +335,7 @@ func (q *Queries) GetSessionsWithoutDescription(ctx context.Context, arg GetSess
 			&i.HourlyRate,
 			&i.FullWorkSummary,
 			&i.OutsideGit,
+			&i.InvoiceID,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -341,7 +352,7 @@ func (q *Queries) GetSessionsWithoutDescription(ctx context.Context, arg GetSess
 }
 
 const listRecentSessions = `-- name: ListRecentSessions :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 ORDER BY s.start_time DESC
@@ -359,6 +370,7 @@ type ListRecentSessionsRow struct {
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
@@ -382,6 +394,7 @@ func (q *Queries) ListRecentSessions(ctx context.Context, limitCount int64) ([]L
 			&i.HourlyRate,
 			&i.FullWorkSummary,
 			&i.OutsideGit,
+			&i.InvoiceID,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -398,7 +411,7 @@ func (q *Queries) ListRecentSessions(ctx context.Context, limitCount int64) ([]L
 }
 
 const listSessionsWithDateRange = `-- name: ListSessionsWithDateRange :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE (?1 IS NULL OR s.start_time >= ?1) 
@@ -426,6 +439,7 @@ type ListSessionsWithDateRangeRow struct {
 	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
 	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
 	ClientName      string          `db:"client_name" json:"client_name"`
 }
 
@@ -454,6 +468,7 @@ func (q *Queries) ListSessionsWithDateRange(ctx context.Context, arg ListSession
 			&i.HourlyRate,
 			&i.FullWorkSummary,
 			&i.OutsideGit,
+			&i.InvoiceID,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -473,7 +488,7 @@ const stopSession = `-- name: StopSession :one
 UPDATE sessions
 SET end_time = ?1
 WHERE id = ?2
-RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git
+RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git, invoice_id
 `
 
 type StopSessionParams struct {
@@ -495,6 +510,7 @@ func (q *Queries) StopSession(ctx context.Context, arg StopSessionParams) (Sessi
 		&i.HourlyRate,
 		&i.FullWorkSummary,
 		&i.OutsideGit,
+		&i.InvoiceID,
 	)
 	return i, err
 }
@@ -503,7 +519,7 @@ const updateSessionDescription = `-- name: UpdateSessionDescription :one
 UPDATE sessions
 SET description = ?1, full_work_summary = ?2
 WHERE id = ?3
-RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git
+RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git, invoice_id
 `
 
 type UpdateSessionDescriptionParams struct {
@@ -526,6 +542,7 @@ func (q *Queries) UpdateSessionDescription(ctx context.Context, arg UpdateSessio
 		&i.HourlyRate,
 		&i.FullWorkSummary,
 		&i.OutsideGit,
+		&i.InvoiceID,
 	)
 	return i, err
 }
@@ -534,7 +551,7 @@ const updateSessionOutsideGit = `-- name: UpdateSessionOutsideGit :one
 UPDATE sessions
 SET outside_git = ?1
 WHERE id = ?2
-RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git
+RETURNING id, client_id, start_time, end_time, description, created_at, updated_at, hourly_rate, full_work_summary, outside_git, invoice_id
 `
 
 type UpdateSessionOutsideGitParams struct {
@@ -556,6 +573,7 @@ func (q *Queries) UpdateSessionOutsideGit(ctx context.Context, arg UpdateSession
 		&i.HourlyRate,
 		&i.FullWorkSummary,
 		&i.OutsideGit,
+		&i.InvoiceID,
 	)
 	return i, err
 }

@@ -238,9 +238,11 @@ reset-and-sync: check-turso-creds db-reset
 e2e-setup:
 	work clients create givetel
 	work clients update givetel -r 100 -d "~/coding/givetel"
-	work sessions create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
 	work clients create personal
 	work clients update personal -d "~/coding/personal"
+
+seed-sessions:
+	work sessions create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
 	work sessions create -c personal -f "2025-08-18 18:30" -t "2025-08-19 01:30"
 
 e2e-test:
@@ -249,6 +251,6 @@ e2e-test:
 	work sessions export -d 2025-08-15 -o givetel.csv
 	work invoices generate -p fortnight -d 2025-08-15
 
-e2e: db-reset install e2e-setup e2e-test
+e2e: db-reset install e2e-setup seed-sessions e2e-test
 
 e2e-sync: reset-and-sync install e2e-test

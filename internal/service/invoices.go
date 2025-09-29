@@ -12,7 +12,7 @@ import (
 )
 
 // GenerateInvoices generates PDF invoices for clients with billable hours
-func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date string) error {
+func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, clientName string) error {
 	// Parse the date
 	targetDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
@@ -22,10 +22,19 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date st
 	// Calculate date range based on period
 	fromDate, toDate := s.CalculatePeriodRange(period, targetDate)
 
-	// Get sessions for the period
-	sessions, err := s.ListSessionsWithDateRange(ctx, fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"), 10000)
-	if err != nil {
-		return fmt.Errorf("failed to get sessions: %w", err)
+	// Get sessions for the period that haven't been invoiced yet
+	var sessions []*models.WorkSession
+
+	if clientName != "" {
+		sessions, err = s.db.GetSessionsForPeriodWithoutInvoiceByClient(ctx, fromDate, toDate, clientName)
+		if err != nil {
+			return fmt.Errorf("failed to get uninvoiced sessions for client %s: %w", clientName, err)
+		}
+	} else {
+		sessions, err = s.db.GetSessionsForPeriodWithoutInvoice(ctx, fromDate, toDate)
+		if err != nil {
+			return fmt.Errorf("failed to get uninvoiced sessions: %w", err)
+		}
 	}
 
 	// Group sessions by client and calculate totals
@@ -38,21 +47,38 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date st
 			continue // Skip clients with no billable hours
 		}
 
-		// Calculate final total (including GST if applicable)
+		// Calculate GST and total
+		var gstAmount float64
 		var total float64
-		var totalDisplay string
 		if s.cfg.GSTRegistered {
-			total = subtotal * 1.1 // Add 10% GST
-			totalDisplay = fmt.Sprintf("$%.2f ($%.2f inc. GST)", subtotal, total)
+			gstAmount = subtotal * 0.1 // 10% GST
+			total = subtotal + gstAmount
 		} else {
 			total = subtotal
-			totalDisplay = fmt.Sprintf("$%.2f", total)
 		}
 
 		// Get client details for billing information
 		client, err := s.GetClientByName(ctx, clientName)
 		if err != nil {
 			return fmt.Errorf("failed to get client details for %s: %w", clientName, err)
+		}
+
+		// Generate invoice number
+		invoiceNumber := fmt.Sprintf("INV-%s-%s-%s", clientName, period, date)
+		invoiceNumber = s.sanitizeFileName(invoiceNumber)
+
+		// Create invoice record in database
+		invoice, err := s.db.CreateInvoice(ctx, client.ID, invoiceNumber, period, fromDate, toDate, subtotal, gstAmount, total, 0.00)
+		if err != nil {
+			return fmt.Errorf("failed to create invoice record for %s: %w", clientName, err)
+		}
+
+		// Update sessions with invoice ID
+		for _, session := range clientSessionList {
+			err = s.db.UpdateSessionInvoiceID(ctx, session.ID, invoice.ID)
+			if err != nil {
+				return fmt.Errorf("failed to update session %s with invoice ID: %w", session.ID, err)
+			}
 		}
 
 		// Generate PDF invoice
@@ -64,6 +90,13 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date st
 			return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
 		}
 
+		var totalDisplay string
+		if s.cfg.GSTRegistered {
+			totalDisplay = fmt.Sprintf("$%.2f ($%.2f inc. GST)", subtotal, total)
+		} else {
+			totalDisplay = fmt.Sprintf("$%.2f", total)
+		}
+
 		fmt.Printf("Generated invoice: %s (Total: %s)\n", fileName, totalDisplay)
 		invoiceCount++
 	}
@@ -73,6 +106,53 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date st
 	}
 
 	return nil
+}
+
+// RegenerateInvoices deletes existing invoices for a period and regenerates them
+func (s *TimesheetService) RegenerateInvoices(ctx context.Context, period, date, clientName string) error {
+	// Parse the date
+	targetDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
+	}
+
+	// Calculate date range based on period
+	fromDate, toDate := s.CalculatePeriodRange(period, targetDate)
+
+	// Get existing invoices for this period
+	var existingInvoices []*models.Invoice
+
+	if clientName != "" {
+		existingInvoices, err = s.db.GetInvoicesByPeriodAndClient(ctx, fromDate, toDate, period, clientName)
+		if err != nil {
+			return fmt.Errorf("failed to get existing invoices for period and client %s: %w", clientName, err)
+		}
+	} else {
+		existingInvoices, err = s.db.GetInvoicesByPeriod(ctx, fromDate, toDate, period)
+		if err != nil {
+			return fmt.Errorf("failed to get existing invoices for period: %w", err)
+		}
+	}
+
+	// Clear sessions' invoice_id for existing invoices and delete the invoices
+	for _, invoice := range existingInvoices {
+		// Clear session invoice IDs
+		err = s.db.ClearSessionInvoiceIDs(ctx, invoice.ID)
+		if err != nil {
+			return fmt.Errorf("failed to clear session invoice IDs for invoice %s: %w", invoice.ID, err)
+		}
+
+		// Delete the invoice
+		err = s.db.DeleteInvoice(ctx, invoice.ID)
+		if err != nil {
+			return fmt.Errorf("failed to delete invoice %s: %w", invoice.ID, err)
+		}
+
+		fmt.Printf("Deleted existing invoice: %s\n", invoice.InvoiceNumber)
+	}
+
+	// Now generate new invoices
+	return s.GenerateInvoices(ctx, period, date, clientName)
 }
 
 func (s *TimesheetService) sanitizeFileName(fileName string) string {
@@ -401,4 +481,81 @@ func (s *TimesheetService) wrapDescriptionText(text string, maxChars int) []stri
 	}
 
 	return lines
+}
+
+// ListInvoices displays a list of invoices with client, period, amounts and payment status
+func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, clientName string, unpaidOnly bool) error {
+	var invoices []*models.Invoice
+	var err error
+
+	if clientName != "" {
+		invoices, err = s.db.GetInvoicesByClient(ctx, clientName)
+		if err != nil {
+			return fmt.Errorf("failed to get invoices for client %s: %w", clientName, err)
+		}
+	} else {
+		invoices, err = s.db.ListInvoices(ctx, limit)
+		if err != nil {
+			return fmt.Errorf("failed to list invoices: %w", err)
+		}
+	}
+
+	// Filter for unpaid invoices if requested
+	if unpaidOnly {
+		var unpaidInvoices []*models.Invoice
+		for _, invoice := range invoices {
+			if invoice.AmountPaid < invoice.TotalAmount {
+				unpaidInvoices = append(unpaidInvoices, invoice)
+			}
+		}
+		invoices = unpaidInvoices
+	}
+
+	if len(invoices) == 0 {
+		if unpaidOnly {
+			fmt.Println("No unpaid invoices found.")
+		} else {
+			fmt.Println("No invoices found.")
+		}
+		return nil
+	}
+
+	// Print header
+	if unpaidOnly {
+		fmt.Println("Unpaid Invoices:")
+	}
+	fmt.Printf("%-15s %-10s %-12s %-12s %-12s %-12s %-12s\n",
+		"CLIENT", "PERIOD", "FROM", "TO", "SUBTOTAL", "TOTAL", "PAID")
+	fmt.Println(strings.Repeat("-", 95))
+
+	// Print each invoice
+	for _, invoice := range invoices {
+		paidStatus := fmt.Sprintf("$%.2f", invoice.AmountPaid)
+		if invoice.AmountPaid >= invoice.TotalAmount {
+			paidStatus = "PAID"
+		} else if invoice.AmountPaid > 0 {
+			paidStatus = fmt.Sprintf("$%.2f", invoice.AmountPaid)
+		} else {
+			paidStatus = "UNPAID"
+		}
+
+		fmt.Printf("%-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-12s\n",
+			truncateString(invoice.ClientName, 14),
+			invoice.PeriodType,
+			invoice.PeriodStartDate.Format("2006-01-02"),
+			invoice.PeriodEndDate.Format("2006-01-02"),
+			invoice.SubtotalAmount,
+			invoice.TotalAmount,
+			paidStatus,
+		)
+	}
+
+	return nil
+}
+
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }
