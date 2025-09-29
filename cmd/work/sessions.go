@@ -101,25 +101,63 @@ func newSessionsListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 	var fromDate, toDate string
 	var verbose bool
 	var client string
+	var period string
+	var periodDate string
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List work sessions",
-		Long:  "Show a list of work sessions with durations and billable amounts. Filter by date range using -f and -t flags, or by client using -c flag. Use -v for verbose output including full work summaries.",
+		Long:  "Show a list of work sessions with durations and billable amounts. Filter by date range using -f and -t flags, by period using -p flag, or by client using -c flag. Use -v for verbose output including full work summaries.",
 	}
 
 	cmd.Flags().Int32VarP(&limit, "limit", "l", 10, "Number of sessions to show")
 	cmd.Flags().StringVarP(&fromDate, "from", "f", "", "Show sessions from this date (YYYY-MM-DD)")
 	cmd.Flags().StringVarP(&toDate, "to", "t", "", "Show sessions to this date (YYYY-MM-DD)")
+	cmd.Flags().StringVarP(&period, "period", "p", "", "Period type: day, week, fortnight, month")
+	cmd.Flags().StringVarP(&periodDate, "date", "d", "", "Date in the period (YYYY-MM-DD), defaults to today when using -p")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show full work summaries")
 	cmd.Flags().StringVarP(&client, "client", "c", "", "Filter sessions by client name")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
+		// Handle period filtering (same logic as hours command)
+		if period != "" {
+			var targetDate time.Time
+			var err error
+
+			if periodDate == "" {
+				// Default to today's date
+				targetDate = time.Now()
+			} else {
+				targetDate, err = time.Parse("2006-01-02", periodDate)
+				if err != nil {
+					return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
+				}
+			}
+
+			fromDateTime, toDateTime := timesheetService.CalculatePeriodRange(period, targetDate)
+			fromDate = fromDateTime.Format("2006-01-02")
+			toDate = toDateTime.Format("2006-01-02")
+		}
+
 		var sessions, err = func() ([]*models.WorkSession, error) {
 			if client != "" {
-				return timesheetService.ListSessionsByClient(ctx, client, limit)
+				if fromDate != "" || toDate != "" {
+					// Get all sessions for client, then filter by date range
+					allSessions, err := timesheetService.ListSessionsByClient(ctx, client, 10000)
+					if err != nil {
+						return nil, fmt.Errorf("failed to get sessions for client: %w", err)
+					}
+					filtered := timesheetService.FilterSessionsByDateRange(allSessions, fromDate, toDate)
+					// Apply limit after filtering
+					if int32(len(filtered)) > limit {
+						filtered = filtered[:limit]
+					}
+					return filtered, nil
+				} else {
+					return timesheetService.ListSessionsByClient(ctx, client, limit)
+				}
 			}
 			if fromDate != "" || toDate != "" {
 				if fromDate == "" {

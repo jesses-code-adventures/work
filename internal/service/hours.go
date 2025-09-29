@@ -41,7 +41,7 @@ func (s *TimesheetService) ShowTotalHours(ctx context.Context, client, period, p
 			if err != nil {
 				return fmt.Errorf("failed to get sessions for client: %w", err)
 			}
-			sessions = s.filterSessionsByDateRange(allSessions, fromDate, toDate)
+			sessions = s.FilterSessionsByDateRange(allSessions, fromDate, toDate)
 		} else {
 			sessions, err = s.ListSessionsByClient(ctx, client, 10000)
 			if err != nil {
@@ -91,7 +91,7 @@ func (s *TimesheetService) ShowTotalHours(ctx context.Context, client, period, p
 	return nil
 }
 
-func (s *TimesheetService) filterSessionsByDateRange(sessions []*models.WorkSession, fromDate, toDate string) []*models.WorkSession {
+func (s *TimesheetService) FilterSessionsByDateRange(sessions []*models.WorkSession, fromDate, toDate string) []*models.WorkSession {
 	if fromDate == "" && toDate == "" {
 		return sessions
 	}
