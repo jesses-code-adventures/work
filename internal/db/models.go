@@ -44,7 +44,31 @@ type Invoice struct {
 	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
 }
 
+type InvoicesBackupBeforeDatetimeMigration struct {
+	ID              string    `db:"id" json:"id"`
+	ClientID        string    `db:"client_id" json:"client_id"`
+	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string    `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
+}
+
 type Payment struct {
+	ID          string    `db:"id" json:"id"`
+	InvoiceID   string    `db:"invoice_id" json:"invoice_id"`
+	Amount      float64   `db:"amount" json:"amount"`
+	PaymentDate time.Time `db:"payment_date" json:"payment_date"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type PaymentsBackupBeforeDatetimeMigration struct {
 	ID          string    `db:"id" json:"id"`
 	InvoiceID   string    `db:"invoice_id" json:"invoice_id"`
 	Amount      float64   `db:"amount" json:"amount"`

@@ -3,8 +3,8 @@ CREATE TABLE invoices (
     client_id text not null,
     invoice_number varchar(50) unique not null,
     period_type varchar(20) not null, -- 'day', 'week', 'fortnight', 'month'
-    period_start_date date not null,
-    period_end_date date not null,
+    period_start_date datetime not null,
+    period_end_date datetime not null,
     subtotal_amount decimal(10,2) not null default 0.00,
     gst_amount decimal(10,2) not null default 0.00,
     total_amount decimal(10,2) not null default 0.00,
@@ -31,7 +31,7 @@ create table payments (
 	id text primary key not null, -- uuid v7
 	invoice_id text not null,
 	amount decimal(10,2) not null,
-	payment_date date not null,
+	payment_date datetime not null,
 	created_at datetime default current_timestamp not null,
 	updated_at datetime default current_timestamp not null,
 	foreign key (invoice_id) references invoices(id)

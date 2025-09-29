@@ -64,41 +64,90 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 			return fmt.Errorf("failed to get client details for %s: %w", clientName, err)
 		}
 
-		// Generate invoice number
-		invoiceNumber := fmt.Sprintf("INV-%s-%s-%s", clientName, period, date)
-		invoiceNumber = s.sanitizeFileName(invoiceNumber)
+		// Check if invoice already exists for this period and client
+		// Normalize dates for database queries
+		periodStartDate := time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, fromDate.Location())
+		periodEndDate := time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 23, 59, 59, 999999999, toDate.Location())
 
-		// Create invoice record in database
-		invoice, err := s.db.CreateInvoice(ctx, client.ID, invoiceNumber, period, fromDate, toDate, subtotal, gstAmount, total)
+		existingInvoices, err := s.db.GetInvoicesByPeriodAndClient(ctx, periodStartDate, periodEndDate, period, clientName)
 		if err != nil {
-			return fmt.Errorf("failed to create invoice record for %s: %w", clientName, err)
+			return fmt.Errorf("failed to check for existing invoices for client %s: %w", clientName, err)
 		}
 
-		// Update sessions with invoice ID
-		for _, session := range clientSessionList {
-			err = s.db.UpdateSessionInvoiceID(ctx, session.ID, invoice.ID)
+		var invoice *models.Invoice
+		if len(existingInvoices) > 0 {
+			// Use existing invoice
+			invoice = existingInvoices[0]
+			fmt.Printf("Found existing invoice for %s: %s\n", clientName, invoice.InvoiceNumber)
+		} else {
+			// Generate invoice number and create new invoice
+			invoiceNumber := fmt.Sprintf("INV-%s-%s-%s", clientName, period, date)
+			invoiceNumber = s.sanitizeFileName(invoiceNumber)
+
+			createdInvoice, err := s.db.CreateInvoice(ctx, client.ID, invoiceNumber, period, periodStartDate, periodEndDate, subtotal, gstAmount, total)
 			if err != nil {
-				return fmt.Errorf("failed to update session %s with invoice ID: %w", session.ID, err)
+				return fmt.Errorf("failed to create invoice record for %s: %w", clientName, err)
 			}
+			invoice = &models.Invoice{
+				ID:              createdInvoice.ID,
+				ClientID:        createdInvoice.ClientID,
+				InvoiceNumber:   createdInvoice.InvoiceNumber,
+				PeriodType:      createdInvoice.PeriodType,
+				PeriodStartDate: createdInvoice.PeriodStartDate,
+				PeriodEndDate:   createdInvoice.PeriodEndDate,
+				SubtotalAmount:  createdInvoice.SubtotalAmount,
+				GstAmount:       createdInvoice.GstAmount,
+				TotalAmount:     createdInvoice.TotalAmount,
+				GeneratedDate:   createdInvoice.GeneratedDate,
+				CreatedAt:       createdInvoice.CreatedAt,
+				UpdatedAt:       createdInvoice.UpdatedAt,
+				ClientName:      clientName,
+			}
+
+			// Update sessions with invoice ID only for new invoices
+			for _, session := range clientSessionList {
+				err = s.db.UpdateSessionInvoiceID(ctx, session.ID, invoice.ID)
+				if err != nil {
+					return fmt.Errorf("failed to update session %s with invoice ID: %w", session.ID, err)
+				}
+			}
+		}
+
+		// Get sessions for PDF generation (either from current period or from existing invoice)
+		var sessionsForPDF []*models.WorkSession
+		if len(existingInvoices) > 0 {
+			// For existing invoices, get sessions by invoice ID
+			sessionsForPDF, err = s.db.GetSessionsByInvoiceID(ctx, invoice.ID)
+			if err != nil {
+				return fmt.Errorf("failed to get sessions for existing invoice %s: %w", invoice.ID, err)
+			}
+		} else {
+			// For new invoices, use the current period sessions
+			sessionsForPDF = clientSessionList
 		}
 
 		// Generate PDF invoice
 		fileName := fmt.Sprintf("invoice_%s_%s_%s.pdf", clientName, period, date)
 		fileName = s.sanitizeFileName(fileName)
 
-		err = s.generateInvoicePDF(fileName, client, clientSessionList, period, fromDate, toDate)
+		err = s.generateInvoicePDF(fileName, client, sessionsForPDF, period, fromDate, toDate)
 		if err != nil {
 			return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
 		}
 
+		// Use invoice amounts for display (from database for existing, calculated for new)
 		var totalDisplay string
 		if s.cfg.GSTRegistered {
-			totalDisplay = fmt.Sprintf("$%.2f ($%.2f inc. GST)", subtotal, total)
+			totalDisplay = fmt.Sprintf("$%.2f ($%.2f inc. GST)", invoice.SubtotalAmount, invoice.TotalAmount)
 		} else {
-			totalDisplay = fmt.Sprintf("$%.2f", total)
+			totalDisplay = fmt.Sprintf("$%.2f", invoice.TotalAmount)
 		}
 
-		fmt.Printf("Generated invoice: %s (Total: %s)\n", fileName, totalDisplay)
+		if len(existingInvoices) > 0 {
+			fmt.Printf("Regenerated PDF for existing invoice: %s (Total: %s)\n", fileName, totalDisplay)
+		} else {
+			fmt.Printf("Generated invoice: %s (Total: %s)\n", fileName, totalDisplay)
+		}
 		invoiceCount++
 	}
 
@@ -120,16 +169,20 @@ func (s *TimesheetService) RegenerateInvoices(ctx context.Context, period, date,
 	// Calculate date range based on period
 	fromDate, toDate := s.CalculatePeriodRange(period, targetDate)
 
+	// Normalize dates for database queries
+	periodStartDate := time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, fromDate.Location())
+	periodEndDate := time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 23, 59, 59, 999999999, toDate.Location())
+
 	// Get existing invoices for this period
 	var existingInvoices []*models.Invoice
 
 	if clientName != "" {
-		existingInvoices, err = s.db.GetInvoicesByPeriodAndClient(ctx, fromDate, toDate, period, clientName)
+		existingInvoices, err = s.db.GetInvoicesByPeriodAndClient(ctx, periodStartDate, periodEndDate, period, clientName)
 		if err != nil {
 			return fmt.Errorf("failed to get existing invoices for period and client %s: %w", clientName, err)
 		}
 	} else {
-		existingInvoices, err = s.db.GetInvoicesByPeriod(ctx, fromDate, toDate, period)
+		existingInvoices, err = s.db.GetInvoicesByPeriod(ctx, periodStartDate, periodEndDate, period)
 		if err != nil {
 			return fmt.Errorf("failed to get existing invoices for period: %w", err)
 		}
@@ -596,7 +649,8 @@ func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount flo
 	}
 
 	if date.IsZero() {
-		date = time.Now().Truncate(24 * time.Hour)
+		now := time.Now()
+		date = time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
 	}
 
 	err = s.db.PayInvoice(ctx, db.PayInvoiceParams{
