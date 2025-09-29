@@ -16,6 +16,7 @@ func newInvoicesCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	cmd.AddCommand(newInvoicesGenerateCmd(timesheetService))
 	cmd.AddCommand(newInvoicesRegenerateCmd(timesheetService))
 	cmd.AddCommand(newInvoicesListCmd(timesheetService))
+	cmd.AddCommand(newInvoicesPayCmd(timesheetService))
 	return cmd
 }
 
@@ -83,6 +84,27 @@ func newInvoicesListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 	cmd.Flags().Int32VarP(&limit, "limit", "l", 20, "Number of invoices to show")
 	cmd.Flags().StringVarP(&client, "client", "c", "", "Filter by specific client")
 	cmd.Flags().BoolVarP(&unpaidOnly, "unpaid", "u", false, "Show only unpaid invoices")
+
+	return cmd
+}
+
+func newInvoicesPayCmd(timesheetService *service.TimesheetService) *cobra.Command {
+	var amount float64
+
+	cmd := &cobra.Command{
+		Use:   "pay",
+		Short: "Pay an invoice",
+		Long:  "Pay an invoice with the specified invoice number and amount, amount defaults to the total amount of the invoice",
+		Args:  cobra.ExactArgs(1),
+	}
+
+	cmd.Flags().Float64VarP(&amount, "amount", "a", 0.0, "Amount being paid, defaulting to the total amount of the invoice")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		id := args[0]
+		return timesheetService.PayInvoice(ctx, id, amount)
+	}
 
 	return cmd
 }

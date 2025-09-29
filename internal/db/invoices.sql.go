@@ -645,6 +645,22 @@ func (q *Queries) ListInvoices(ctx context.Context, limitCount int64) ([]ListInv
 	return items, nil
 }
 
+const payInvoice = `-- name: PayInvoice :exec
+update invoices
+set amount_paid = coalesce(amount_paid, 0) + coalesce(?1, 0)
+where id = ?2
+`
+
+type PayInvoiceParams struct {
+	Amount float64 `db:"amount" json:"amount"`
+	ID     string  `db:"id" json:"id"`
+}
+
+func (q *Queries) PayInvoice(ctx context.Context, arg PayInvoiceParams) error {
+	_, err := q.db.ExecContext(ctx, payInvoice, arg.Amount, arg.ID)
+	return err
+}
+
 const updateSessionInvoiceID = `-- name: UpdateSessionInvoiceID :exec
 UPDATE sessions
 SET invoice_id = ?1

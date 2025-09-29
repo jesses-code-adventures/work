@@ -89,3 +89,8 @@ WHERE i.period_start_date = sqlc.arg(period_start_date)
   AND i.period_type = sqlc.arg(period_type)
   AND c.name = sqlc.arg(client_name)
 ORDER BY i.generated_date;
+
+-- name: PayInvoice :exec
+update invoices
+set amount_paid = coalesce(amount_paid, 0) + coalesce(sqlc.arg(amount), 0)
+where id = sqlc.arg(id);

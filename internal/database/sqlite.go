@@ -915,6 +915,14 @@ func (s *SQLiteDB) GetInvoicesByPeriodAndClient(ctx context.Context, periodStart
 	return result, nil
 }
 
+func (s *SQLiteDB) PayInvoice(ctx context.Context, param db.PayInvoiceParams) error {
+	err := s.queries.PayInvoice(ctx, param)
+	if err != nil {
+		return fmt.Errorf("failed to pay invoice: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLiteDB) convertDBInvoicesByPeriodAndClientRowToModel(invoice db.GetInvoicesByPeriodAndClientRow) *models.Invoice {
 
 	return &models.Invoice{

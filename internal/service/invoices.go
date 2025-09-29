@@ -8,6 +8,7 @@ import (
 
 	"github.com/jung-kurt/gofpdf"
 
+	"github.com/jesses-code-adventures/work/internal/db"
 	"github.com/jesses-code-adventures/work/internal/models"
 )
 
@@ -524,9 +525,9 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 	if unpaidOnly {
 		fmt.Println("Unpaid Invoices:")
 	}
-	fmt.Printf("%-15s %-10s %-12s %-12s %-12s %-12s %-12s\n",
-		"CLIENT", "PERIOD", "FROM", "TO", "SUBTOTAL", "TOTAL", "PAID")
-	fmt.Println(strings.Repeat("-", 95))
+	fmt.Printf("%-38s %-15s %-10s %-12s %-12s %-12s %-12s %-12s\n",
+		"ID", "CLIENT", "PERIOD", "FROM", "TO", "SUBTOTAL", "TOTAL", "PAID")
+	fmt.Println(strings.Repeat("-", 131))
 
 	// Print each invoice
 	for _, invoice := range invoices {
@@ -539,7 +540,8 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 			paidStatus = "UNPAID"
 		}
 
-		fmt.Printf("%-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-12s\n",
+		fmt.Printf("%-38s %-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-12s\n",
+			invoice.ID,
 			truncateString(invoice.ClientName, 14),
 			invoice.PeriodType,
 			invoice.PeriodStartDate.Format("2006-01-02"),
@@ -550,6 +552,48 @@ func (s *TimesheetService) ListInvoices(ctx context.Context, limit int32, client
 		)
 	}
 
+	return nil
+}
+
+func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount float64) error {
+	invoice, err := s.db.GetInvoiceByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get invoice: %w", err)
+	}
+
+	remainingAmount := invoice.TotalAmount - invoice.AmountPaid
+	if remainingAmount <= 0 {
+		return fmt.Errorf("invoice already fully paid")
+	}
+
+	if amount < 0 {
+		return fmt.Errorf("amount must be greater than 0")
+	}
+
+	if amount == 0 {
+		amount = remainingAmount
+	}
+
+	if amount > remainingAmount {
+		return fmt.Errorf("payment amount ($%.2f) exceeds remaining balance ($%.2f)", amount, remainingAmount)
+	}
+
+	err = s.db.PayInvoice(ctx, db.PayInvoiceParams{
+		ID:     invoice.ID,
+		Amount: amount,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update invoice: %w", err)
+	}
+
+	newAmountPaid := invoice.AmountPaid + amount
+	status := "partially paid"
+	if newAmountPaid >= invoice.TotalAmount {
+		status = "fully paid"
+	}
+
+	fmt.Printf("Invoice %s paid $%.2f (now %s: $%.2f/$%.2f)\n",
+		invoice.InvoiceNumber, amount, status, newAmountPaid, invoice.TotalAmount)
 	return nil
 }
 

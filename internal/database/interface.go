@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jesses-code-adventures/work/internal/db"
 	"github.com/jesses-code-adventures/work/internal/models"
 )
 
@@ -51,6 +52,7 @@ type DB interface {
 	// Invoice operations
 	CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total, amountPaid float64) (*models.Invoice, error)
 	GetInvoiceByID(ctx context.Context, invoiceID string) (*models.Invoice, error)
+	PayInvoice(ctx context.Context, param db.PayInvoiceParams) error
 	GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (*models.Invoice, error)
 	ListInvoices(ctx context.Context, limit int32) ([]*models.Invoice, error)
 	GetInvoicesByClient(ctx context.Context, clientName string) ([]*models.Invoice, error)

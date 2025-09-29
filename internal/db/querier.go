@@ -37,6 +37,7 @@ type Querier interface {
 	ListInvoices(ctx context.Context, limitCount int64) ([]ListInvoicesRow, error)
 	ListRecentSessions(ctx context.Context, limitCount int64) ([]ListRecentSessionsRow, error)
 	ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error)
+	PayInvoice(ctx context.Context, arg PayInvoiceParams) error
 	StopSession(ctx context.Context, arg StopSessionParams) (Session, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
 	UpdateSessionDescription(ctx context.Context, arg UpdateSessionDescriptionParams) (Session, error)
