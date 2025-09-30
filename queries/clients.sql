@@ -1,6 +1,6 @@
 -- name: CreateClient :one
-INSERT INTO clients (id, name, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, abn, dir)
-VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.narg(hourly_rate), sqlc.narg(company_name), sqlc.narg(contact_name), sqlc.narg(email), sqlc.narg(phone), sqlc.narg(address_line1), sqlc.narg(address_line2), sqlc.narg(city), sqlc.narg(state), sqlc.narg(postal_code), sqlc.narg(country), sqlc.narg(abn), sqlc.narg(dir))
+INSERT INTO clients (id, name, hourly_rate, company_name, contact_name, email, phone, address_line1, address_line2, city, state, postal_code, country, abn, dir, retainer_amount, retainer_hours, retainer_basis)
+VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.narg(hourly_rate), sqlc.narg(company_name), sqlc.narg(contact_name), sqlc.narg(email), sqlc.narg(phone), sqlc.narg(address_line1), sqlc.narg(address_line2), sqlc.narg(city), sqlc.narg(state), sqlc.narg(postal_code), sqlc.narg(country), sqlc.narg(abn), sqlc.narg(dir), sqlc.narg(retainer_amount), sqlc.narg(retainer_hours), sqlc.narg(retainer_basis))
 RETURNING *;
 
 -- name: GetClientByName :one
@@ -30,7 +30,10 @@ SET
     postal_code = sqlc.narg(postal_code),
     country = sqlc.narg(country),
     abn = sqlc.narg(abn),
-    dir = sqlc.narg(dir)
+    dir = sqlc.narg(dir),
+    retainer_amount = sqlc.narg(retainer_amount),
+    retainer_hours = sqlc.narg(retainer_hours),
+    retainer_basis = sqlc.narg(retainer_basis)
 WHERE id = sqlc.arg(id)
 RETURNING *;
 

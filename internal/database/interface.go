@@ -9,25 +9,28 @@ import (
 )
 
 type ClientUpdateDetails struct {
-	HourlyRate   *float64
-	CompanyName  *string
-	ContactName  *string
-	Email        *string
-	Phone        *string
-	AddressLine1 *string
-	AddressLine2 *string
-	City         *string
-	State        *string
-	PostalCode   *string
-	Country      *string
-	Abn          *string
-	Dir          *string
+	HourlyRate     *float64
+	CompanyName    *string
+	ContactName    *string
+	Email          *string
+	Phone          *string
+	AddressLine1   *string
+	AddressLine2   *string
+	City           *string
+	State          *string
+	PostalCode     *string
+	Country        *string
+	Abn            *string
+	Dir            *string
+	RetainerAmount *float64
+	RetainerHours  *float64
+	RetainerBasis  *string
 }
 
 type DB interface {
 	Close() error
 
-	CreateClient(ctx context.Context, name string, hourlyRate float64) (*models.Client, error)
+	CreateClient(ctx context.Context, name string, hourlyRate float64, retainerAmount, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error)
 	GetClientByName(ctx context.Context, name string) (*models.Client, error)
 	GetClientByID(ctx context.Context, ID string) (*models.Client, error)
 	ListClients(ctx context.Context) ([]*models.Client, error)

@@ -43,25 +43,31 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 
 	invoiceCount := 0
 	for clientName, clientSessionList := range clientSessions {
-		subtotal := s.calculateClientTotal(clientSessionList)
-		if subtotal <= 0 {
-			continue // Skip clients with no billable hours
+		// Get client details for billing information first
+		client, err := s.GetClientByName(ctx, clientName)
+		if err != nil {
+			return fmt.Errorf("failed to get client details for %s: %w", clientName, err)
 		}
+
+		// Calculate billable amounts with retainer consideration
+		subtotal, retainerAmount := s.calculateClientTotalWithRetainer(clientSessionList, client, period)
+
+		// Skip if no billable hours and no retainer
+		if subtotal <= 0 && retainerAmount <= 0 {
+			continue
+		}
+
+		// Total billable amount includes retainer
+		totalBillable := subtotal + retainerAmount
 
 		// Calculate GST and total
 		var gstAmount float64
 		var total float64
 		if s.cfg.GSTRegistered {
-			gstAmount = subtotal * 0.1 // 10% GST
-			total = subtotal + gstAmount
+			gstAmount = totalBillable * 0.1 // 10% GST
+			total = totalBillable + gstAmount
 		} else {
-			total = subtotal
-		}
-
-		// Get client details for billing information
-		client, err := s.GetClientByName(ctx, clientName)
-		if err != nil {
-			return fmt.Errorf("failed to get client details for %s: %w", clientName, err)
+			total = totalBillable
 		}
 
 		// Check if invoice already exists for this period and client
@@ -130,7 +136,7 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		fileName := fmt.Sprintf("invoice_%s_%s_%s.pdf", clientName, period, date)
 		fileName = s.sanitizeFileName(fileName)
 
-		err = s.generateInvoicePDF(fileName, client, sessionsForPDF, period, fromDate, toDate)
+		err = s.generateInvoicePDF(fileName, client, sessionsForPDF, period, fromDate, toDate, retainerAmount)
 		if err != nil {
 			return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
 		}
@@ -222,7 +228,7 @@ func (s *TimesheetService) sanitizeFileName(fileName string) string {
 	return result
 }
 
-func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, period string, fromDate, toDate time.Time) error {
+func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, period string, fromDate, toDate time.Time, retainerAmount float64) error {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
@@ -333,15 +339,26 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 	pdf.Cell(40, 6, fmt.Sprintf("BSB: %s", s.cfg.BillingBSB))
 	pdf.Ln(12) // Add space before totals
 
-	// Calculate totals first
-	subtotal := 0.0
-	for _, session := range sessions {
-		amount := s.CalculateBillableAmount(session)
-		subtotal += amount
-	}
+	// Calculate session totals with retainer consideration
+	sessionSubtotal, _ := s.calculateClientTotalWithRetainer(sessions, client, period)
 
 	// Totals section on first page
 	pdf.SetFont("Arial", "B", 11)
+
+	// Show retainer if applicable
+	if retainerAmount > 0 {
+		pdf.Cell(168, 8, fmt.Sprintf("Retainer (%s):", period))
+		pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", retainerAmount), "", 1, "R", false, 0, "")
+	}
+
+	// Session work subtotal
+	if sessionSubtotal > 0 {
+		pdf.Cell(168, 8, "Session Work:")
+		pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", sessionSubtotal), "", 1, "R", false, 0, "")
+	}
+
+	// Total before GST
+	subtotal := sessionSubtotal + retainerAmount
 	pdf.Cell(168, 8, "Subtotal:")
 	pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", subtotal), "", 1, "R", false, 0, "")
 
@@ -379,9 +396,39 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 	// Table rows
 	pdf.SetFont("Arial", "", 8)
 
+	// Track cumulative hours for retainer calculation
+	var cumulativeHours float64
+
 	for _, session := range sessions {
 		duration := s.CalculateDuration(session)
-		amount := s.CalculateBillableAmount(session)
+		sessionHours := duration.Hours()
+
+		// Calculate effective rate and amount considering retainer
+		effectiveRate := float64(0)
+		amount := float64(0)
+
+		if session.HourlyRate != nil && *session.HourlyRate > 0 {
+			if retainerAmount > 0 && client.RetainerHours != nil && (cumulativeHours < *client.RetainerHours) {
+				// Session hours covered by retainer
+				if cumulativeHours+sessionHours <= *client.RetainerHours {
+					// Fully covered by retainer
+					effectiveRate = 0
+					amount = 0
+				} else {
+					// Partially covered by retainer
+					retainerCoveredHours := *client.RetainerHours - cumulativeHours
+					billableHours := sessionHours - retainerCoveredHours
+					effectiveRate = *session.HourlyRate // Show original rate
+					amount = billableHours * (*session.HourlyRate)
+				}
+			} else {
+				// Not covered by retainer
+				effectiveRate = *session.HourlyRate
+				amount = sessionHours * (*session.HourlyRate)
+			}
+		}
+
+		cumulativeHours += sessionHours
 
 		// Prepare description lines with text wrapping
 		description := ""
@@ -418,11 +465,14 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 
 		pdf.CellFormat(20, rowHeight, fmt.Sprintf("%.1fh", duration.Hours()), "1", 0, "C", false, 0, "")
 
-		rate := ""
-		if session.HourlyRate != nil {
-			rate = fmt.Sprintf("$%.0f", *session.HourlyRate)
+		// Show effective rate (retainer-adjusted)
+		rateText := ""
+		if effectiveRate > 0 {
+			rateText = fmt.Sprintf("$%.0f", effectiveRate)
+		} else if retainerAmount > 0 && cumulativeHours <= *client.RetainerHours {
+			rateText = "$0*" // Indicate retainer coverage
 		}
-		pdf.CellFormat(18, rowHeight, rate, "1", 0, "C", false, 0, "")
+		pdf.CellFormat(18, rowHeight, rateText, "1", 0, "C", false, 0, "")
 
 		// Handle multi-line description
 		currentX := pdf.GetX()
@@ -440,6 +490,13 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 		// Move to amount column
 		pdf.SetXY(currentX+60, currentY)
 		pdf.CellFormat(22, rowHeight, fmt.Sprintf("$%.2f", amount), "1", 1, "R", false, 0, "")
+	}
+
+	// Add note about retainer if applicable
+	if retainerAmount > 0 && client.RetainerHours != nil {
+		pdf.Ln(6)
+		pdf.SetFont("Arial", "", 8)
+		pdf.Cell(190, 6, fmt.Sprintf("* First %.1f hours covered by %s retainer", *client.RetainerHours, period))
 	}
 
 	return pdf.OutputFileAndClose(fileName)
@@ -461,6 +518,44 @@ func (s *TimesheetService) calculateClientTotal(sessions []*models.WorkSession) 
 		total += s.CalculateBillableAmount(session)
 	}
 	return total
+}
+
+// calculateClientTotalWithRetainer calculates the billable total and retainer amount for a client
+func (s *TimesheetService) calculateClientTotalWithRetainer(sessions []*models.WorkSession, client *models.Client, period string) (float64, float64) {
+	// Check if client has retainer and if it applies to this period
+	var retainerAmount float64
+	if client.RetainerAmount != nil && client.RetainerHours != nil && client.RetainerBasis != nil &&
+		*client.RetainerAmount > 0 && *client.RetainerHours > 0 && *client.RetainerBasis == period {
+		retainerAmount = *client.RetainerAmount
+	}
+
+	// Calculate total hours and billable amount with retainer consideration
+	var totalHours float64
+	var billableTotal float64
+
+	for _, session := range sessions {
+		sessionHours := s.CalculateDuration(session).Hours()
+		totalHours += sessionHours
+
+		// Apply retainer hours at $0 rate first
+		if retainerAmount > 0 && client.RetainerHours != nil && totalHours <= *client.RetainerHours {
+			// Session hours are covered by retainer, bill at $0
+			continue
+		} else if retainerAmount > 0 && client.RetainerHours != nil && (totalHours-sessionHours) < *client.RetainerHours {
+			// Partial session covered by retainer
+			retainerCoveredHours := *client.RetainerHours - (totalHours - sessionHours)
+			billableHours := sessionHours - retainerCoveredHours
+
+			if session.HourlyRate != nil && *session.HourlyRate > 0 {
+				billableTotal += billableHours * (*session.HourlyRate)
+			}
+		} else {
+			// Session fully billable
+			billableTotal += s.CalculateBillableAmount(session)
+		}
+	}
+
+	return billableTotal, retainerAmount
 }
 
 func (s *TimesheetService) formatClientName(name string) string {

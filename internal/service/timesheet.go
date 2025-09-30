@@ -163,7 +163,7 @@ func (s *TimesheetService) DeleteSessionsByDateRange(ctx context.Context, fromDa
 	return s.db.DeleteSessionsByDateRange(ctx, from, to)
 }
 
-func (s *TimesheetService) CreateClient(ctx context.Context, name string, hourlyRate float64) (*models.Client, error) {
+func (s *TimesheetService) CreateClient(ctx context.Context, name string, hourlyRate float64, retainerAmount, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error) {
 	existing, err := s.db.GetClientByName(ctx, name)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to check for existing client: %w", err)
@@ -173,7 +173,7 @@ func (s *TimesheetService) CreateClient(ctx context.Context, name string, hourly
 		return nil, fmt.Errorf("client '%s' already exists", name)
 	}
 
-	return s.db.CreateClient(ctx, name, hourlyRate)
+	return s.db.CreateClient(ctx, name, hourlyRate, retainerAmount, retainerHours, retainerBasis, dir)
 }
 
 func (s *TimesheetService) ListClients(ctx context.Context) ([]*models.Client, error) {
@@ -245,6 +245,9 @@ func (s *TimesheetService) DisplayClient(ctx context.Context, client *models.Cli
 	}
 	if client.Abn != nil {
 		fmt.Printf("ABN: %s\n", *client.Abn)
+	}
+	if client.RetainerAmount != nil && client.RetainerHours != nil && client.RetainerBasis != nil {
+		fmt.Printf("Retainer: $%.2f for %.1f hours per %s\n", *client.RetainerAmount, *client.RetainerHours, *client.RetainerBasis)
 	}
 }
 

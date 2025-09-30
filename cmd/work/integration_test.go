@@ -56,7 +56,7 @@ func TestIntegrationWorkCommands(t *testing.T) {
 
 	t.Run("Work Start", func(t *testing.T) {
 		// First create a client
-		_, err := timesheetService.CreateClient(ctx, "test-client", 50.0)
+		_, err := timesheetService.CreateClient(ctx, "test-client", 50.0, nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("Failed to create test client: %v", err)
 		}

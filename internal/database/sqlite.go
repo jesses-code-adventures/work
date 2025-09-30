@@ -67,7 +67,7 @@ func (s *SQLiteDB) GetConnection() *sql.DB {
 	return s.conn
 }
 
-func (s *SQLiteDB) CreateClient(ctx context.Context, name string, hourlyRate float64) (*models.Client, error) {
+func (s *SQLiteDB) CreateClient(ctx context.Context, name string, hourlyRate float64, retainerAmount, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error) {
 	client, err := s.queries.CreateClient(ctx, db.CreateClientParams{
 		ID:   models.NewUUID(),
 		Name: name,
@@ -75,6 +75,10 @@ func (s *SQLiteDB) CreateClient(ctx context.Context, name string, hourlyRate flo
 			Float64: hourlyRate,
 			Valid:   hourlyRate > 0,
 		},
+		RetainerAmount: ptrToNullFloat64(retainerAmount),
+		RetainerHours:  ptrToNullFloat64(retainerHours),
+		RetainerBasis:  ptrToNullString(retainerBasis),
+		Dir:            ptrToNullString(dir),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
@@ -432,20 +436,23 @@ func (s *SQLiteDB) ListSessionsByClient(ctx context.Context, clientName string, 
 
 func (s *SQLiteDB) UpdateClient(ctx context.Context, clientID string, updates *ClientUpdateDetails) (*models.Client, error) {
 	client, err := s.queries.UpdateClient(ctx, db.UpdateClientParams{
-		ID:           clientID,
-		HourlyRate:   sql.NullFloat64{Float64: *updates.HourlyRate, Valid: true},
-		CompanyName:  ptrToNullString(updates.CompanyName),
-		ContactName:  ptrToNullString(updates.ContactName),
-		Email:        ptrToNullString(updates.Email),
-		Phone:        ptrToNullString(updates.Phone),
-		AddressLine1: ptrToNullString(updates.AddressLine1),
-		AddressLine2: ptrToNullString(updates.AddressLine2),
-		City:         ptrToNullString(updates.City),
-		State:        ptrToNullString(updates.State),
-		PostalCode:   ptrToNullString(updates.PostalCode),
-		Country:      ptrToNullString(updates.Country),
-		Abn:          ptrToNullString(updates.Abn),
-		Dir:          ptrToNullString(updates.Dir),
+		ID:             clientID,
+		HourlyRate:     sql.NullFloat64{Float64: *updates.HourlyRate, Valid: true},
+		CompanyName:    ptrToNullString(updates.CompanyName),
+		ContactName:    ptrToNullString(updates.ContactName),
+		Email:          ptrToNullString(updates.Email),
+		Phone:          ptrToNullString(updates.Phone),
+		AddressLine1:   ptrToNullString(updates.AddressLine1),
+		AddressLine2:   ptrToNullString(updates.AddressLine2),
+		City:           ptrToNullString(updates.City),
+		State:          ptrToNullString(updates.State),
+		PostalCode:     ptrToNullString(updates.PostalCode),
+		Country:        ptrToNullString(updates.Country),
+		Abn:            ptrToNullString(updates.Abn),
+		Dir:            ptrToNullString(updates.Dir),
+		RetainerAmount: ptrToNullFloat64(updates.RetainerAmount),
+		RetainerHours:  ptrToNullFloat64(updates.RetainerHours),
+		RetainerBasis:  ptrToNullString(updates.RetainerBasis),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update client billing: %w", err)
@@ -495,6 +502,13 @@ func nullStringToPtr(ns sql.NullString) *string {
 	return nil
 }
 
+func nullFloat64ToPtr(nf sql.NullFloat64) *float64 {
+	if nf.Valid {
+		return &nf.Float64
+	}
+	return nil
+}
+
 func (s *SQLiteDB) convertDBClientToModel(client db.Client) *models.Client {
 	var rate float64
 	if client.HourlyRate.Valid {
@@ -502,23 +516,26 @@ func (s *SQLiteDB) convertDBClientToModel(client db.Client) *models.Client {
 	}
 
 	return &models.Client{
-		ID:           client.ID,
-		Name:         client.Name,
-		HourlyRate:   rate,
-		CompanyName:  nullStringToPtr(client.CompanyName),
-		ContactName:  nullStringToPtr(client.ContactName),
-		Email:        nullStringToPtr(client.Email),
-		Phone:        nullStringToPtr(client.Phone),
-		AddressLine1: nullStringToPtr(client.AddressLine1),
-		AddressLine2: nullStringToPtr(client.AddressLine2),
-		City:         nullStringToPtr(client.City),
-		State:        nullStringToPtr(client.State),
-		PostalCode:   nullStringToPtr(client.PostalCode),
-		Country:      nullStringToPtr(client.Country),
-		Abn:          nullStringToPtr(client.Abn),
-		Dir:          nullStringToPtr(client.Dir),
-		CreatedAt:    client.CreatedAt,
-		UpdatedAt:    client.UpdatedAt,
+		ID:             client.ID,
+		Name:           client.Name,
+		HourlyRate:     rate,
+		CompanyName:    nullStringToPtr(client.CompanyName),
+		ContactName:    nullStringToPtr(client.ContactName),
+		Email:          nullStringToPtr(client.Email),
+		Phone:          nullStringToPtr(client.Phone),
+		AddressLine1:   nullStringToPtr(client.AddressLine1),
+		AddressLine2:   nullStringToPtr(client.AddressLine2),
+		City:           nullStringToPtr(client.City),
+		State:          nullStringToPtr(client.State),
+		PostalCode:     nullStringToPtr(client.PostalCode),
+		Country:        nullStringToPtr(client.Country),
+		Abn:            nullStringToPtr(client.Abn),
+		Dir:            nullStringToPtr(client.Dir),
+		RetainerAmount: nullFloat64ToPtr(client.RetainerAmount),
+		RetainerHours:  nullFloat64ToPtr(client.RetainerHours),
+		RetainerBasis:  nullStringToPtr(client.RetainerBasis),
+		CreatedAt:      client.CreatedAt,
+		UpdatedAt:      client.UpdatedAt,
 	}
 }
 
@@ -527,6 +544,13 @@ func ptrToNullString(s *string) sql.NullString {
 		return sql.NullString{String: *s, Valid: true}
 	}
 	return sql.NullString{Valid: false}
+}
+
+func ptrToNullFloat64(f *float64) sql.NullFloat64 {
+	if f != nil {
+		return sql.NullFloat64{Float64: *f, Valid: true}
+	}
+	return sql.NullFloat64{Valid: false}
 }
 
 func (s *SQLiteDB) convertDBSessionToModel(session interface{}) *models.WorkSession {

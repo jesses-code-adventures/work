@@ -25,15 +25,23 @@ func newClientsCmd(timesheetService *service.TimesheetService) *cobra.Command {
 
 func newClientsCreateCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var rate float64
+	var retainerAmount, retainerHours float64
+	var retainerBasis, dir string
 
 	cmd := &cobra.Command{
 		Use:   "create <client-name>",
 		Short: "Create a new client",
-		Long:  "Create a client with a given hourly rate",
+		Long:  "Create a client with a given hourly rate, optional retainer, and directory",
 		Args:  cobra.MinimumNArgs(1),
 	}
 
 	cmd.Flags().Float64VarP(&rate, "rate", "r", 0.0, "Hourly rate for the client")
+	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the client")
+
+	// Retainer flags
+	cmd.Flags().Float64Var(&retainerAmount, "retainer-amount", 0.0, "Retainer amount (e.g., 5000.00)")
+	cmd.Flags().Float64Var(&retainerHours, "retainer-hours", 0.0, "Hours covered by retainer (e.g., 40.0)")
+	cmd.Flags().StringVar(&retainerBasis, "retainer-basis", "", "Retainer billing basis: day, week, month, quarter, year")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
@@ -42,7 +50,7 @@ func newClientsCreateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 
 		switch {
 		case clientName != "":
-			return createClient(ctx, timesheetService, clientName, rate)
+			return createClient(ctx, timesheetService, clientName, rate, retainerAmount, retainerHours, retainerBasis, dir)
 		default:
 			return fmt.Errorf("must supply a client name (usage: work clients create <client-name>)")
 		}
@@ -51,13 +59,41 @@ func newClientsCreateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	return cmd
 }
 
-func createClient(ctx context.Context, timesheetService *service.TimesheetService, name string, rate float64) error {
-	client, err := timesheetService.CreateClient(ctx, name, rate)
+func createClient(ctx context.Context, timesheetService *service.TimesheetService, name string, rate float64, retainerAmount, retainerHours float64, retainerBasis, dir string) error {
+	// Convert fields to pointers (nil if zero/empty)
+	var retainerAmountPtr, retainerHoursPtr *float64
+	var retainerBasisPtr, dirPtr *string
+
+	if retainerAmount > 0 {
+		retainerAmountPtr = &retainerAmount
+	}
+	if retainerHours > 0 {
+		retainerHoursPtr = &retainerHours
+	}
+	if retainerBasis != "" {
+		retainerBasisPtr = &retainerBasis
+	}
+	if dir != "" {
+		dirPtr = &dir
+	}
+
+	client, err := timesheetService.CreateClient(ctx, name, rate, retainerAmountPtr, retainerHoursPtr, retainerBasisPtr, dirPtr)
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Created client: %s (ID: %s, Rate: $%.2f/hr)\n", client.Name, client.ID, client.HourlyRate)
+
+	// Show retainer info if set
+	if client.RetainerAmount != nil && *client.RetainerAmount > 0 {
+		fmt.Printf("Retainer: $%.2f for %.1f hours per %s\n", *client.RetainerAmount, *client.RetainerHours, *client.RetainerBasis)
+	}
+
+	// Show directory if set
+	if client.Dir != nil && *client.Dir != "" {
+		fmt.Printf("Directory: %s\n", *client.Dir)
+	}
+
 	return nil
 }
 
@@ -105,6 +141,8 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	var hourlyRate float64
 	var companyName, contactName, email, phone string
 	var addressLine1, addressLine2, city, state, postalCode, country, abn, dir string
+	var retainerAmount, retainerHours float64
+	var retainerBasis string
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -129,6 +167,11 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 	cmd.Flags().StringVar(&abn, "abn", "", "Australian Business Number (ABN)")
 	cmd.Flags().StringVarP(&dir, "dir", "d", "", "Directory path for the client")
 
+	// Retainer flags
+	cmd.Flags().Float64Var(&retainerAmount, "retainer-amount", 0.0, "Retainer amount (e.g., 5000.00)")
+	cmd.Flags().Float64Var(&retainerHours, "retainer-hours", 0.0, "Hours covered by retainer (e.g., 40.0)")
+	cmd.Flags().StringVar(&retainerBasis, "retainer-basis", "", "Retainer billing basis: day, week, month, quarter, year")
+
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		client := args[0]
@@ -137,19 +180,22 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 		}
 
 		updatedClient, err := timesheetService.UpdateClient(ctx, client, &database.ClientUpdateDetails{
-			HourlyRate:   &hourlyRate,
-			CompanyName:  &companyName,
-			ContactName:  &contactName,
-			Email:        &email,
-			Phone:        &phone,
-			AddressLine1: &addressLine1,
-			AddressLine2: &addressLine2,
-			City:         &city,
-			State:        &state,
-			PostalCode:   &postalCode,
-			Country:      &country,
-			Abn:          &abn,
-			Dir:          &dir,
+			HourlyRate:     &hourlyRate,
+			CompanyName:    &companyName,
+			ContactName:    &contactName,
+			Email:          &email,
+			Phone:          &phone,
+			AddressLine1:   &addressLine1,
+			AddressLine2:   &addressLine2,
+			City:           &city,
+			State:          &state,
+			PostalCode:     &postalCode,
+			Country:        &country,
+			Abn:            &abn,
+			Dir:            &dir,
+			RetainerAmount: &retainerAmount,
+			RetainerHours:  &retainerHours,
+			RetainerBasis:  &retainerBasis,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update client billing: %w", err)

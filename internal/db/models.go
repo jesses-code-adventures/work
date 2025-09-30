@@ -10,23 +10,26 @@ import (
 )
 
 type Client struct {
-	ID           string          `db:"id" json:"id"`
-	Name         string          `db:"name" json:"name"`
-	CreatedAt    time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate   sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	CompanyName  sql.NullString  `db:"company_name" json:"company_name"`
-	ContactName  sql.NullString  `db:"contact_name" json:"contact_name"`
-	Email        sql.NullString  `db:"email" json:"email"`
-	Phone        sql.NullString  `db:"phone" json:"phone"`
-	AddressLine1 sql.NullString  `db:"address_line1" json:"address_line1"`
-	AddressLine2 sql.NullString  `db:"address_line2" json:"address_line2"`
-	City         sql.NullString  `db:"city" json:"city"`
-	State        sql.NullString  `db:"state" json:"state"`
-	PostalCode   sql.NullString  `db:"postal_code" json:"postal_code"`
-	Country      sql.NullString  `db:"country" json:"country"`
-	Dir          sql.NullString  `db:"dir" json:"dir"`
-	Abn          sql.NullString  `db:"abn" json:"abn"`
+	ID             string          `db:"id" json:"id"`
+	Name           string          `db:"name" json:"name"`
+	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
+	HourlyRate     sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
+	CompanyName    sql.NullString  `db:"company_name" json:"company_name"`
+	ContactName    sql.NullString  `db:"contact_name" json:"contact_name"`
+	Email          sql.NullString  `db:"email" json:"email"`
+	Phone          sql.NullString  `db:"phone" json:"phone"`
+	AddressLine1   sql.NullString  `db:"address_line1" json:"address_line1"`
+	AddressLine2   sql.NullString  `db:"address_line2" json:"address_line2"`
+	City           sql.NullString  `db:"city" json:"city"`
+	State          sql.NullString  `db:"state" json:"state"`
+	PostalCode     sql.NullString  `db:"postal_code" json:"postal_code"`
+	Country        sql.NullString  `db:"country" json:"country"`
+	Dir            sql.NullString  `db:"dir" json:"dir"`
+	Abn            sql.NullString  `db:"abn" json:"abn"`
+	RetainerAmount sql.NullFloat64 `db:"retainer_amount" json:"retainer_amount"`
+	RetainerHours  sql.NullFloat64 `db:"retainer_hours" json:"retainer_hours"`
+	RetainerBasis  sql.NullString  `db:"retainer_basis" json:"retainer_basis"`
 }
 
 type Invoice struct {

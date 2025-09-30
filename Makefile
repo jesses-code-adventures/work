@@ -236,20 +236,28 @@ reset-and-sync: check-turso-creds db-reset
 	$(MAKE) db-stats
 
 e2e-setup:
-	work clients create givetel
-	work clients update givetel -r 100 -d "~/coding/givetel"
-	work clients create personal
-	work clients update personal -d "~/coding/personal"
+	work clients create givetel -r 100 -d "~/coding/givetel" --retainer-amount 4000.00 --retainer-hours 40.0 --retainer-basis month
+	work clients create matchbox -r 100 -d "~/coding/matchbox"
 
 seed-sessions:
-	work sessions create -c givetel -f "2025-08-14 16:30" -t "2025-08-15 02:30"
-	work sessions create -c personal -f "2025-08-18 18:30" -t "2025-08-19 01:30"
+	# no retainer, should be 50 hours billable
+	work sessions create -c matchbox -f "2025-09-09 10:00" -t "2025-09-09 20:00"
+	work sessions create -c matchbox -f "2025-09-10 10:00" -t "2025-09-10 20:00"
+	work sessions create -c matchbox -f "2025-09-11 10:00" -t "2025-09-11 20:00"
+	work sessions create -c matchbox -f "2025-09-12 10:00" -t "2025-09-12 20:00"
+	work sessions create -c matchbox -f "2025-09-13 10:00" -t "2025-09-13 20:00"
+	# should have 10 hours over retainer
+	work sessions create -c givetel -f "2025-09-14 10:00" -t "2025-09-14 20:00"
+	work sessions create -c givetel -f "2025-09-15 10:00" -t "2025-09-15 20:00"
+	work sessions create -c givetel -f "2025-09-16 10:00" -t "2025-09-16 20:00"
+	work sessions create -c givetel -f "2025-09-17 10:00" -t "2025-09-17 20:00"
+	work sessions create -c givetel -f "2025-09-18 10:00" -t "2025-09-18 20:00"
+
 
 e2e-test:
 	work descriptions generate -u -c givetel
 	work sessions list -v
-	work sessions export -d 2025-08-15 -o givetel.csv
-	work invoices generate -p fortnight -d 2025-08-15
+	work invoices generate -p month -d 2025-09-30
 
 e2e: db-reset install e2e-setup seed-sessions e2e-test
 

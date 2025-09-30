@@ -7,23 +7,26 @@ import (
 )
 
 type Client struct {
-	ID           string    `json:"id" db:"id"`
-	Name         string    `json:"name" db:"name"`
-	HourlyRate   float64   `json:"hourly_rate" db:"hourly_rate"`
-	CompanyName  *string   `json:"company_name,omitempty" db:"company_name"`
-	ContactName  *string   `json:"contact_name,omitempty" db:"contact_name"`
-	Email        *string   `json:"email,omitempty" db:"email"`
-	Phone        *string   `json:"phone,omitempty" db:"phone"`
-	AddressLine1 *string   `json:"address_line1,omitempty" db:"address_line1"`
-	AddressLine2 *string   `json:"address_line2,omitempty" db:"address_line2"`
-	City         *string   `json:"city,omitempty" db:"city"`
-	State        *string   `json:"state,omitempty" db:"state"`
-	PostalCode   *string   `json:"postal_code,omitempty" db:"postal_code"`
-	Country      *string   `json:"country,omitempty" db:"country"`
-	Abn          *string   `json:"abn,omitempty" db:"abn"`
-	Dir          *string   `json:"dir,omitempty" db:"dir"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID             string    `json:"id" db:"id"`
+	Name           string    `json:"name" db:"name"`
+	HourlyRate     float64   `json:"hourly_rate" db:"hourly_rate"`
+	CompanyName    *string   `json:"company_name,omitempty" db:"company_name"`
+	ContactName    *string   `json:"contact_name,omitempty" db:"contact_name"`
+	Email          *string   `json:"email,omitempty" db:"email"`
+	Phone          *string   `json:"phone,omitempty" db:"phone"`
+	AddressLine1   *string   `json:"address_line1,omitempty" db:"address_line1"`
+	AddressLine2   *string   `json:"address_line2,omitempty" db:"address_line2"`
+	City           *string   `json:"city,omitempty" db:"city"`
+	State          *string   `json:"state,omitempty" db:"state"`
+	PostalCode     *string   `json:"postal_code,omitempty" db:"postal_code"`
+	Country        *string   `json:"country,omitempty" db:"country"`
+	Abn            *string   `json:"abn,omitempty" db:"abn"`
+	Dir            *string   `json:"dir,omitempty" db:"dir"`
+	RetainerAmount *float64  `json:"retainer_amount,omitempty" db:"retainer_amount"`
+	RetainerHours  *float64  `json:"retainer_hours,omitempty" db:"retainer_hours"`
+	RetainerBasis  *string   `json:"retainer_basis,omitempty" db:"retainer_basis"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type WorkSession struct {
