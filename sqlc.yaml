@@ -19,3 +19,67 @@ sql:
             go_type: "time.Time"
           - db_type: "TIMESTAMP"
             go_type: "time.Time"
+          - db_type: "DECIMAL(10,2)"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "decimal.Decimal"
+          - db_type: "decimal(10,2)"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "decimal.Decimal"
+          - column: "invoices.subtotal_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "invoices.gst_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "invoices.total_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "clients.hourly_rate"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "NullDecimal"
+          - column: "clients.retainer_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "NullDecimal"
+          - column: "sessions.hourly_rate"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "NullDecimal"
+          - column: "payments.amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "invoices_backup_before_datetime_migration.subtotal_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "invoices_backup_before_datetime_migration.gst_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "invoices_backup_before_datetime_migration.total_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "payments_backup_before_datetime_migration.amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "v_invoices.subtotal_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "v_invoices.gst_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - column: "v_invoices.total_amount"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"

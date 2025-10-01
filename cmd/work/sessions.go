@@ -9,6 +9,7 @@ import (
 
 	"github.com/jesses-code-adventures/work/internal/models"
 	"github.com/jesses-code-adventures/work/internal/service"
+	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 )
 
@@ -87,7 +88,7 @@ func newSessionsCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 		if description != "" {
 			fmt.Printf("  Description: %s\n", description)
 		}
-		if billableAmount > 0 {
+		if billableAmount.GreaterThan(decimal.Zero) {
 			fmt.Printf("  Billable: %s\n", timesheetService.FormatBillableAmount(billableAmount))
 		}
 		return nil

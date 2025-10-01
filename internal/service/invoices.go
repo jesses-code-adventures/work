@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
+	"github.com/shopspring/decimal"
 
 	"github.com/jesses-code-adventures/work/internal/db"
 	"github.com/jesses-code-adventures/work/internal/models"
@@ -53,19 +54,19 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		subtotal, retainerAmount := s.calculateClientTotalWithRetainer(clientSessionList, client, period)
 
 		// Skip if no billable hours and no retainer
-		if subtotal <= 0 && retainerAmount <= 0 {
+		if subtotal.LessThanOrEqual(decimal.Zero) && retainerAmount.LessThanOrEqual(decimal.Zero) {
 			continue
 		}
 
 		// Total billable amount includes retainer
-		totalBillable := subtotal + retainerAmount
+		totalBillable := subtotal.Add(retainerAmount)
 
 		// Calculate GST and total
-		var gstAmount float64
-		var total float64
+		var gstAmount decimal.Decimal
+		var total decimal.Decimal
 		if s.cfg.GSTRegistered {
-			gstAmount = totalBillable * 0.1 // 10% GST
-			total = totalBillable + gstAmount
+			gstAmount = totalBillable.Mul(decimal.NewFromFloat(0.1)) // 10% GST
+			total = totalBillable.Add(gstAmount)
 		} else {
 			total = totalBillable
 		}
@@ -144,9 +145,9 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		// Use invoice amounts for display (from database for existing, calculated for new)
 		var totalDisplay string
 		if s.cfg.GSTRegistered {
-			totalDisplay = fmt.Sprintf("$%.2f ($%.2f inc. GST)", invoice.SubtotalAmount, invoice.TotalAmount)
+			totalDisplay = fmt.Sprintf("$%s ($%s inc. GST)", invoice.SubtotalAmount.StringFixed(2), invoice.TotalAmount.StringFixed(2))
 		} else {
-			totalDisplay = fmt.Sprintf("$%.2f", invoice.TotalAmount)
+			totalDisplay = fmt.Sprintf("$%s", invoice.TotalAmount.StringFixed(2))
 		}
 
 		if len(existingInvoices) > 0 {
@@ -228,7 +229,7 @@ func (s *TimesheetService) sanitizeFileName(fileName string) string {
 	return result
 }
 
-func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, period string, fromDate, toDate time.Time, retainerAmount float64) error {
+func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, period string, fromDate, toDate time.Time, retainerAmount decimal.Decimal) error {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
@@ -346,29 +347,29 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 	pdf.SetFont("Arial", "B", 11)
 
 	// Show retainer if applicable
-	if retainerAmount > 0 {
+	if retainerAmount.GreaterThan(decimal.Zero) {
 		pdf.Cell(168, 8, fmt.Sprintf("Retainer (%s):", period))
-		pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", retainerAmount), "", 1, "R", false, 0, "")
+		pdf.CellFormat(22, 8, fmt.Sprintf("$%s", retainerAmount.StringFixed(2)), "", 1, "R", false, 0, "")
 	}
 
 	// Session work subtotal
-	if sessionSubtotal > 0 {
+	if sessionSubtotal.GreaterThan(decimal.Zero) {
 		pdf.Cell(168, 8, "Session Work:")
-		pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", sessionSubtotal), "", 1, "R", false, 0, "")
+		pdf.CellFormat(22, 8, fmt.Sprintf("$%s", sessionSubtotal.StringFixed(2)), "", 1, "R", false, 0, "")
 	}
 
 	// Total before GST
-	subtotal := sessionSubtotal + retainerAmount
+	subtotal := sessionSubtotal.Add(retainerAmount)
 	pdf.Cell(168, 8, "Subtotal:")
-	pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", subtotal), "", 1, "R", false, 0, "")
+	pdf.CellFormat(22, 8, fmt.Sprintf("$%s", subtotal.StringFixed(2)), "", 1, "R", false, 0, "")
 
 	// GST (10%) - only if GST registered
-	var total float64
+	var total decimal.Decimal
 	if s.cfg.GSTRegistered {
-		gst := subtotal * 0.1
+		gst := subtotal.Mul(decimal.NewFromFloat(0.1))
 		pdf.Cell(168, 8, "GST (10%):")
-		pdf.CellFormat(22, 8, fmt.Sprintf("$%.2f", gst), "", 1, "R", false, 0, "")
-		total = subtotal + gst
+		pdf.CellFormat(22, 8, fmt.Sprintf("$%s", gst.StringFixed(2)), "", 1, "R", false, 0, "")
+		total = subtotal.Add(gst)
 	} else {
 		total = subtotal
 	}
@@ -376,7 +377,7 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 	// Total
 	pdf.SetFont("Arial", "B", 12)
 	pdf.Cell(168, 10, "Total:")
-	pdf.CellFormat(22, 10, fmt.Sprintf("$%.2f", total), "", 1, "R", false, 0, "")
+	pdf.CellFormat(22, 10, fmt.Sprintf("$%s", total.StringFixed(2)), "", 1, "R", false, 0, "")
 
 	// Start new page for the session details table
 	pdf.AddPage()
@@ -397,38 +398,38 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 	pdf.SetFont("Arial", "", 8)
 
 	// Track cumulative hours for retainer calculation
-	var cumulativeHours float64
+	var cumulativeHours decimal.Decimal
 
 	for _, session := range sessions {
 		duration := s.CalculateDuration(session)
 		sessionHours := duration.Hours()
 
 		// Calculate effective rate and amount considering retainer
-		effectiveRate := float64(0)
-		amount := float64(0)
+		effectiveRate := decimal.Zero
+		amount := decimal.Zero
 
-		if session.HourlyRate != nil && *session.HourlyRate > 0 {
-			if retainerAmount > 0 && client.RetainerHours != nil && (cumulativeHours < *client.RetainerHours) {
+		if session.HourlyRate != nil && session.HourlyRate.GreaterThan(decimal.Zero) {
+			if retainerAmount.GreaterThan(decimal.Zero) && client.RetainerHours != nil && (cumulativeHours.LessThan(decimal.NewFromFloat(*client.RetainerHours))) {
 				// Session hours covered by retainer
-				if cumulativeHours+sessionHours <= *client.RetainerHours {
+				if cumulativeHours.Add(decimal.NewFromFloat(sessionHours)).LessThanOrEqual(decimal.NewFromFloat(*client.RetainerHours)) {
 					// Fully covered by retainer
-					effectiveRate = 0
-					amount = 0
+					effectiveRate = decimal.Zero
+					amount = decimal.Zero
 				} else {
 					// Partially covered by retainer
-					retainerCoveredHours := *client.RetainerHours - cumulativeHours
-					billableHours := sessionHours - retainerCoveredHours
+					retainerCoveredHours := decimal.NewFromFloat(*client.RetainerHours).Sub(cumulativeHours)
+					billableHours := decimal.NewFromFloat(sessionHours).Sub(retainerCoveredHours)
 					effectiveRate = *session.HourlyRate // Show original rate
-					amount = billableHours * (*session.HourlyRate)
+					amount = billableHours.Mul(*session.HourlyRate)
 				}
 			} else {
 				// Not covered by retainer
 				effectiveRate = *session.HourlyRate
-				amount = sessionHours * (*session.HourlyRate)
+				amount = decimal.NewFromFloat(sessionHours).Mul(*session.HourlyRate)
 			}
 		}
 
-		cumulativeHours += sessionHours
+		cumulativeHours = decimal.NewFromFloat(sessionHours).Add(cumulativeHours)
 
 		// Prepare description lines with text wrapping
 		description := ""
@@ -467,9 +468,9 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 
 		// Show effective rate (retainer-adjusted)
 		rateText := ""
-		if effectiveRate > 0 {
-			rateText = fmt.Sprintf("$%.0f", effectiveRate)
-		} else if retainerAmount > 0 && cumulativeHours <= *client.RetainerHours {
+		if effectiveRate.GreaterThan(decimal.Zero) {
+			rateText = fmt.Sprintf("$%s", effectiveRate.StringFixed(0))
+		} else if retainerAmount.GreaterThan(decimal.Zero) && cumulativeHours.LessThanOrEqual(decimal.NewFromFloat(*client.RetainerHours)) {
 			rateText = "$0*" // Indicate retainer coverage
 		}
 		pdf.CellFormat(18, rowHeight, rateText, "1", 0, "C", false, 0, "")
@@ -489,11 +490,11 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 
 		// Move to amount column
 		pdf.SetXY(currentX+60, currentY)
-		pdf.CellFormat(22, rowHeight, fmt.Sprintf("$%.2f", amount), "1", 1, "R", false, 0, "")
+		pdf.CellFormat(22, rowHeight, fmt.Sprintf("$%s", amount.StringFixed(2)), "1", 1, "R", false, 0, "")
 	}
 
 	// Add note about retainer if applicable
-	if retainerAmount > 0 && client.RetainerHours != nil {
+	if retainerAmount.GreaterThan(decimal.Zero) && client.RetainerHours != nil {
 		pdf.Ln(6)
 		pdf.SetFont("Arial", "", 8)
 		pdf.Cell(190, 6, fmt.Sprintf("* First %.1f hours covered by %s retainer", *client.RetainerHours, period))
@@ -512,46 +513,46 @@ func (s *TimesheetService) groupSessionsByClient(sessions []*models.WorkSession)
 	return clientSessions
 }
 
-func (s *TimesheetService) calculateClientTotal(sessions []*models.WorkSession) float64 {
-	total := 0.0
+func (s *TimesheetService) calculateClientTotal(sessions []*models.WorkSession) decimal.Decimal {
+	total := decimal.Zero
 	for _, session := range sessions {
-		total += s.CalculateBillableAmount(session)
+		total = total.Add(s.CalculateBillableAmount(session))
 	}
 	return total
 }
 
 // calculateClientTotalWithRetainer calculates the billable total and retainer amount for a client
-func (s *TimesheetService) calculateClientTotalWithRetainer(sessions []*models.WorkSession, client *models.Client, period string) (float64, float64) {
+func (s *TimesheetService) calculateClientTotalWithRetainer(sessions []*models.WorkSession, client *models.Client, period string) (decimal.Decimal, decimal.Decimal) {
 	// Check if client has retainer and if it applies to this period
-	var retainerAmount float64
+	var retainerAmount decimal.Decimal
 	if client.RetainerAmount != nil && client.RetainerHours != nil && client.RetainerBasis != nil &&
-		*client.RetainerAmount > 0 && *client.RetainerHours > 0 && *client.RetainerBasis == period {
+		client.RetainerAmount.GreaterThan(decimal.Zero) && *client.RetainerHours > 0.0 && *client.RetainerBasis == period {
 		retainerAmount = *client.RetainerAmount
 	}
 
 	// Calculate total hours and billable amount with retainer consideration
-	var totalHours float64
-	var billableTotal float64
+	var totalHours decimal.Decimal
+	var billableTotal decimal.Decimal
 
 	for _, session := range sessions {
-		sessionHours := s.CalculateDuration(session).Hours()
-		totalHours += sessionHours
+		sessionHours := decimal.NewFromFloat(s.CalculateDuration(session).Hours())
+		totalHours = sessionHours.Add(totalHours)
 
 		// Apply retainer hours at $0 rate first
-		if retainerAmount > 0 && client.RetainerHours != nil && totalHours <= *client.RetainerHours {
+		if retainerAmount.GreaterThan(decimal.Zero) && client.RetainerHours != nil && totalHours.LessThanOrEqual(decimal.NewFromFloat(*client.RetainerHours)) {
 			// Session hours are covered by retainer, bill at $0
 			continue
-		} else if retainerAmount > 0 && client.RetainerHours != nil && (totalHours-sessionHours) < *client.RetainerHours {
+		} else if retainerAmount.GreaterThan(decimal.Zero) && client.RetainerHours != nil && (totalHours.Sub(sessionHours)).LessThan(decimal.NewFromFloat(*client.RetainerHours)) {
 			// Partial session covered by retainer
-			retainerCoveredHours := *client.RetainerHours - (totalHours - sessionHours)
-			billableHours := sessionHours - retainerCoveredHours
+			retainerCoveredHours := decimal.NewFromFloat(*client.RetainerHours).Sub((totalHours.Sub(sessionHours)))
+			billableHours := sessionHours.Sub(retainerCoveredHours)
 
-			if session.HourlyRate != nil && *session.HourlyRate > 0 {
-				billableTotal += billableHours * (*session.HourlyRate)
+			if session.HourlyRate != nil && session.HourlyRate.GreaterThan(decimal.Zero) {
+				billableTotal = billableTotal.Add(billableHours.Mul(*session.HourlyRate))
 			}
 		} else {
 			// Session fully billable
-			billableTotal += s.CalculateBillableAmount(session)
+			billableTotal = billableTotal.Add(s.CalculateBillableAmount(session))
 		}
 	}
 
@@ -662,7 +663,7 @@ func (s *TimesheetService) GetInvoices(ctx context.Context, limit int32, clientN
 	if unpaidOnly {
 		var unpaidInvoices []*models.Invoice
 		for _, invoice := range invoices {
-			if invoice.AmountPaid < invoice.TotalAmount {
+			if invoice.AmountPaid.LessThan(invoice.TotalAmount) {
 				unpaidInvoices = append(unpaidInvoices, invoice)
 			}
 		}
@@ -691,10 +692,10 @@ func (s *TimesheetService) PrintInvoices(invoices []*models.Invoice, unpaidOnly 
 
 	// Print each invoice
 	for _, invoice := range invoices {
-		paidStatus := fmt.Sprintf("$%.2f", invoice.AmountPaid)
-		if invoice.AmountPaid >= invoice.TotalAmount {
+		paidStatus := fmt.Sprintf("$%s", invoice.AmountPaid.StringFixed(2))
+		if invoice.AmountPaid.GreaterThanOrEqual(invoice.TotalAmount) {
 			paidStatus = "PAID"
-		} else if invoice.AmountPaid > 0 {
+		} else if invoice.AmountPaid.GreaterThan(decimal.Zero) {
 			paidStatus = "PARTIALLY PAID"
 		} else {
 			paidStatus = "UNPAID"
@@ -705,42 +706,42 @@ func (s *TimesheetService) PrintInvoices(invoices []*models.Invoice, unpaidOnly 
 			paymentDate = invoice.PaymentDate.Format("2006-01-02")
 		}
 
-		fmt.Printf("%-38s %-15s %-10s %-12s %-12s $%-11.2f $%-11.2f %-16s %-18s %-12s\n",
+		fmt.Printf("%-38s %-15s %-10s %-12s %-12s $%-11s $%-11s %-16s %-18s %-12s\n",
 			invoice.ID,
 			truncateString(invoice.ClientName, 14),
 			invoice.PeriodType,
 			invoice.PeriodStartDate.Format("2006-01-02"),
 			invoice.PeriodEndDate.Format("2006-01-02"),
-			invoice.SubtotalAmount,
-			invoice.TotalAmount,
-			fmt.Sprintf("$%.2f", invoice.AmountPaid),
+			invoice.SubtotalAmount.StringFixed(2),
+			invoice.TotalAmount.StringFixed(2),
+			invoice.AmountPaid.StringFixed(2),
 			paymentDate,
 			paidStatus,
 		)
 	}
 }
 
-func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount float64, date time.Time) error {
+func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount decimal.Decimal, date time.Time) error {
 	invoice, err := s.db.GetInvoiceByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get invoice: %w", err)
 	}
 
-	remainingAmount := invoice.TotalAmount - invoice.AmountPaid
-	if remainingAmount <= 0 {
+	remainingAmount := invoice.TotalAmount.Sub(invoice.AmountPaid)
+	if remainingAmount.LessThanOrEqual(decimal.Zero) {
 		return fmt.Errorf("invoice already fully paid")
 	}
 
-	if amount < 0 {
+	if amount.LessThanOrEqual(decimal.Zero) {
 		return fmt.Errorf("amount must be greater than 0")
 	}
 
-	if amount == 0 {
+	if amount.Equal(decimal.Zero) {
 		amount = remainingAmount
 	}
 
-	if amount > remainingAmount {
-		return fmt.Errorf("payment amount ($%.2f) exceeds remaining balance ($%.2f)", amount, remainingAmount)
+	if amount.GreaterThan(remainingAmount) {
+		return fmt.Errorf("payment amount ($%s) exceeds remaining balance ($%s)", amount.StringFixed(2), remainingAmount.StringFixed(2))
 	}
 
 	if date.IsZero() {
@@ -758,14 +759,14 @@ func (s *TimesheetService) PayInvoice(ctx context.Context, id string, amount flo
 		return fmt.Errorf("failed to update invoice: %w", err)
 	}
 
-	newAmountPaid := invoice.AmountPaid + amount
+	newAmountPaid := invoice.AmountPaid.Add(amount)
 	status := "partially paid"
-	if newAmountPaid >= invoice.TotalAmount {
+	if newAmountPaid.GreaterThanOrEqual(invoice.TotalAmount) {
 		status = "fully paid"
 	}
 
-	fmt.Printf("Invoice %s paid $%.2f (now %s: $%.2f/$%.2f)\n",
-		invoice.InvoiceNumber, amount, status, newAmountPaid, invoice.TotalAmount)
+	fmt.Printf("Invoice %s paid $%s (now %s: $%s/$%s)\n",
+		invoice.InvoiceNumber, amount.StringFixed(2), status, newAmountPaid.StringFixed(2), invoice.TotalAmount.StringFixed(2))
 	return nil
 }
 

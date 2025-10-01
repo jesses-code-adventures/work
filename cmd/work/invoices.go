@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 
 	"github.com/jesses-code-adventures/work/internal/service"
@@ -111,7 +112,7 @@ func newInvoicesPayCmd(timesheetService *service.TimesheetService) *cobra.Comman
 		if err != nil && dateStr != "" {
 			return err
 		}
-		return timesheetService.PayInvoice(ctx, id, amount, date)
+		return timesheetService.PayInvoice(ctx, id, decimal.NewFromFloat(amount), date)
 	}
 
 	return cmd

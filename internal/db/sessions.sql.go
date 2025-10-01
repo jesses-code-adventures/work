@@ -9,6 +9,8 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 const createSession = `-- name: CreateSession :one
@@ -18,11 +20,11 @@ RETURNING id, client_id, start_time, end_time, description, created_at, updated_
 `
 
 type CreateSessionParams struct {
-	ID          string          `db:"id" json:"id"`
-	ClientID    string          `db:"client_id" json:"client_id"`
-	StartTime   time.Time       `db:"start_time" json:"start_time"`
-	Description sql.NullString  `db:"description" json:"description"`
-	HourlyRate  sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
+	ID          string              `db:"id" json:"id"`
+	ClientID    string              `db:"client_id" json:"client_id"`
+	StartTime   time.Time           `db:"start_time" json:"start_time"`
+	Description sql.NullString      `db:"description" json:"description"`
+	HourlyRate  decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
@@ -85,18 +87,18 @@ LIMIT 1
 `
 
 type GetActiveSessionRow struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
-	ClientName      string          `db:"client_name" json:"client_name"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetActiveSession(ctx context.Context) (GetActiveSessionRow, error) {
@@ -127,18 +129,18 @@ WHERE s.id = ?1
 `
 
 type GetSessionByIDRow struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
-	ClientName      string          `db:"client_name" json:"client_name"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetSessionByID(ctx context.Context, id string) (GetSessionByIDRow, error) {
@@ -170,18 +172,18 @@ ORDER BY s.start_time DESC
 `
 
 type GetSessionsByClientRow struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
-	ClientName      string          `db:"client_name" json:"client_name"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetSessionsByClient(ctx context.Context, clientName string) ([]GetSessionsByClientRow, error) {
@@ -234,18 +236,18 @@ type GetSessionsByDateRangeParams struct {
 }
 
 type GetSessionsByDateRangeRow struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
-	ClientName      string          `db:"client_name" json:"client_name"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetSessionsByDateRange(ctx context.Context, arg GetSessionsByDateRangeParams) ([]GetSessionsByDateRangeRow, error) {
@@ -301,18 +303,18 @@ type GetSessionsWithoutDescriptionParams struct {
 }
 
 type GetSessionsWithoutDescriptionRow struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
-	ClientName      string          `db:"client_name" json:"client_name"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) GetSessionsWithoutDescription(ctx context.Context, arg GetSessionsWithoutDescriptionParams) ([]GetSessionsWithoutDescriptionRow, error) {
@@ -360,18 +362,18 @@ LIMIT ?1
 `
 
 type ListRecentSessionsRow struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
-	ClientName      string          `db:"client_name" json:"client_name"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) ListRecentSessions(ctx context.Context, limitCount int64) ([]ListRecentSessionsRow, error) {
@@ -429,18 +431,18 @@ type ListSessionsWithDateRangeParams struct {
 }
 
 type ListSessionsWithDateRangeRow struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
-	ClientName      string          `db:"client_name" json:"client_name"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
 func (q *Queries) ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error) {

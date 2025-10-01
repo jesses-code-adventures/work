@@ -7,106 +7,108 @@ package db
 import (
 	"database/sql"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 type Client struct {
-	ID             string          `db:"id" json:"id"`
-	Name           string          `db:"name" json:"name"`
-	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate     sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	CompanyName    sql.NullString  `db:"company_name" json:"company_name"`
-	ContactName    sql.NullString  `db:"contact_name" json:"contact_name"`
-	Email          sql.NullString  `db:"email" json:"email"`
-	Phone          sql.NullString  `db:"phone" json:"phone"`
-	AddressLine1   sql.NullString  `db:"address_line1" json:"address_line1"`
-	AddressLine2   sql.NullString  `db:"address_line2" json:"address_line2"`
-	City           sql.NullString  `db:"city" json:"city"`
-	State          sql.NullString  `db:"state" json:"state"`
-	PostalCode     sql.NullString  `db:"postal_code" json:"postal_code"`
-	Country        sql.NullString  `db:"country" json:"country"`
-	Dir            sql.NullString  `db:"dir" json:"dir"`
-	Abn            sql.NullString  `db:"abn" json:"abn"`
-	RetainerAmount sql.NullFloat64 `db:"retainer_amount" json:"retainer_amount"`
-	RetainerHours  sql.NullFloat64 `db:"retainer_hours" json:"retainer_hours"`
-	RetainerBasis  sql.NullString  `db:"retainer_basis" json:"retainer_basis"`
+	ID             string              `db:"id" json:"id"`
+	Name           string              `db:"name" json:"name"`
+	CreatedAt      time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt      time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate     decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	CompanyName    sql.NullString      `db:"company_name" json:"company_name"`
+	ContactName    sql.NullString      `db:"contact_name" json:"contact_name"`
+	Email          sql.NullString      `db:"email" json:"email"`
+	Phone          sql.NullString      `db:"phone" json:"phone"`
+	AddressLine1   sql.NullString      `db:"address_line1" json:"address_line1"`
+	AddressLine2   sql.NullString      `db:"address_line2" json:"address_line2"`
+	City           sql.NullString      `db:"city" json:"city"`
+	State          sql.NullString      `db:"state" json:"state"`
+	PostalCode     sql.NullString      `db:"postal_code" json:"postal_code"`
+	Country        sql.NullString      `db:"country" json:"country"`
+	Dir            sql.NullString      `db:"dir" json:"dir"`
+	Abn            sql.NullString      `db:"abn" json:"abn"`
+	RetainerAmount decimal.NullDecimal `db:"retainer_amount" json:"retainer_amount"`
+	RetainerHours  sql.NullFloat64     `db:"retainer_hours" json:"retainer_hours"`
+	RetainerBasis  sql.NullString      `db:"retainer_basis" json:"retainer_basis"`
 }
 
 type Invoice struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
+	ID              string          `db:"id" json:"id"`
+	ClientID        string          `db:"client_id" json:"client_id"`
+	InvoiceNumber   string          `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string          `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time       `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time       `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  decimal.Decimal `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       decimal.Decimal `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     decimal.Decimal `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time       `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type InvoicesBackupBeforeDatetimeMigration struct {
-	ID              string    `db:"id" json:"id"`
-	ClientID        string    `db:"client_id" json:"client_id"`
-	InvoiceNumber   string    `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string    `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64   `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64   `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64   `db:"total_amount" json:"total_amount"`
-	GeneratedDate   time.Time `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
+	ID              string          `db:"id" json:"id"`
+	ClientID        string          `db:"client_id" json:"client_id"`
+	InvoiceNumber   string          `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string          `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time       `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time       `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  decimal.Decimal `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       decimal.Decimal `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     decimal.Decimal `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time       `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type Payment struct {
-	ID          string    `db:"id" json:"id"`
-	InvoiceID   string    `db:"invoice_id" json:"invoice_id"`
-	Amount      float64   `db:"amount" json:"amount"`
-	PaymentDate time.Time `db:"payment_date" json:"payment_date"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+	ID          string          `db:"id" json:"id"`
+	InvoiceID   string          `db:"invoice_id" json:"invoice_id"`
+	Amount      decimal.Decimal `db:"amount" json:"amount"`
+	PaymentDate time.Time       `db:"payment_date" json:"payment_date"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type PaymentsBackupBeforeDatetimeMigration struct {
-	ID          string    `db:"id" json:"id"`
-	InvoiceID   string    `db:"invoice_id" json:"invoice_id"`
-	Amount      float64   `db:"amount" json:"amount"`
-	PaymentDate time.Time `db:"payment_date" json:"payment_date"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+	ID          string          `db:"id" json:"id"`
+	InvoiceID   string          `db:"invoice_id" json:"invoice_id"`
+	Amount      decimal.Decimal `db:"amount" json:"amount"`
+	PaymentDate time.Time       `db:"payment_date" json:"payment_date"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 type Session struct {
-	ID              string          `db:"id" json:"id"`
-	ClientID        string          `db:"client_id" json:"client_id"`
-	StartTime       time.Time       `db:"start_time" json:"start_time"`
-	EndTime         sql.NullTime    `db:"end_time" json:"end_time"`
-	Description     sql.NullString  `db:"description" json:"description"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
-	HourlyRate      sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	FullWorkSummary sql.NullString  `db:"full_work_summary" json:"full_work_summary"`
-	OutsideGit      sql.NullString  `db:"outside_git" json:"outside_git"`
-	InvoiceID       sql.NullString  `db:"invoice_id" json:"invoice_id"`
+	ID              string              `db:"id" json:"id"`
+	ClientID        string              `db:"client_id" json:"client_id"`
+	StartTime       time.Time           `db:"start_time" json:"start_time"`
+	EndTime         sql.NullTime        `db:"end_time" json:"end_time"`
+	Description     sql.NullString      `db:"description" json:"description"`
+	CreatedAt       time.Time           `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updated_at"`
+	HourlyRate      decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
+	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
+	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
 }
 
 type VInvoice struct {
-	ID              string      `db:"id" json:"id"`
-	ClientID        string      `db:"client_id" json:"client_id"`
-	InvoiceNumber   string      `db:"invoice_number" json:"invoice_number"`
-	PeriodType      string      `db:"period_type" json:"period_type"`
-	PeriodStartDate time.Time   `db:"period_start_date" json:"period_start_date"`
-	PeriodEndDate   time.Time   `db:"period_end_date" json:"period_end_date"`
-	SubtotalAmount  float64     `db:"subtotal_amount" json:"subtotal_amount"`
-	GstAmount       float64     `db:"gst_amount" json:"gst_amount"`
-	TotalAmount     float64     `db:"total_amount" json:"total_amount"`
-	GeneratedDate   time.Time   `db:"generated_date" json:"generated_date"`
-	CreatedAt       time.Time   `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time   `db:"updated_at" json:"updated_at"`
-	AmountPaid      float64     `db:"amount_paid" json:"amount_paid"`
-	PaymentDate     interface{} `db:"payment_date" json:"payment_date"`
+	ID              string          `db:"id" json:"id"`
+	ClientID        string          `db:"client_id" json:"client_id"`
+	InvoiceNumber   string          `db:"invoice_number" json:"invoice_number"`
+	PeriodType      string          `db:"period_type" json:"period_type"`
+	PeriodStartDate time.Time       `db:"period_start_date" json:"period_start_date"`
+	PeriodEndDate   time.Time       `db:"period_end_date" json:"period_end_date"`
+	SubtotalAmount  decimal.Decimal `db:"subtotal_amount" json:"subtotal_amount"`
+	GstAmount       decimal.Decimal `db:"gst_amount" json:"gst_amount"`
+	TotalAmount     decimal.Decimal `db:"total_amount" json:"total_amount"`
+	GeneratedDate   time.Time       `db:"generated_date" json:"generated_date"`
+	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
+	AmountPaid      float64         `db:"amount_paid" json:"amount_paid"`
+	PaymentDate     interface{}     `db:"payment_date" json:"payment_date"`
 }

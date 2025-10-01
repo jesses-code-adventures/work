@@ -7,6 +7,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/shopspring/decimal"
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
 
 	"github.com/jesses-code-adventures/work/internal/config"
@@ -67,15 +68,15 @@ func (s *SQLiteDB) GetConnection() *sql.DB {
 	return s.conn
 }
 
-func (s *SQLiteDB) CreateClient(ctx context.Context, name string, hourlyRate float64, retainerAmount, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error) {
+func (s *SQLiteDB) CreateClient(ctx context.Context, name string, hourlyRate decimal.Decimal, retainerAmount *decimal.Decimal, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error) {
 	client, err := s.queries.CreateClient(ctx, db.CreateClientParams{
 		ID:   models.NewUUID(),
 		Name: name,
-		HourlyRate: sql.NullFloat64{
-			Float64: hourlyRate,
-			Valid:   hourlyRate > 0,
+		HourlyRate: decimal.NullDecimal{
+			Decimal: hourlyRate,
+			Valid:   hourlyRate.GreaterThan(decimal.Zero),
 		},
-		RetainerAmount: ptrToNullFloat64(retainerAmount),
+		RetainerAmount: ptrToNullDecimal(retainerAmount),
 		RetainerHours:  ptrToNullFloat64(retainerHours),
 		RetainerBasis:  ptrToNullString(retainerBasis),
 		Dir:            ptrToNullString(dir),
@@ -139,15 +140,15 @@ func (s *SQLiteDB) GetClientsWithDirectories(ctx context.Context) ([]*models.Cli
 	return result, nil
 }
 
-func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate float64) (*models.WorkSession, error) {
+func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
 		desc = sql.NullString{String: *description, Valid: true}
 	}
 
-	var rate sql.NullFloat64
-	if hourlyRate > 0 {
-		rate = sql.NullFloat64{Float64: hourlyRate, Valid: true}
+	var rate decimal.NullDecimal
+	if hourlyRate.GreaterThan(decimal.Zero) {
+		rate = decimal.NullDecimal{Decimal: hourlyRate, Valid: true}
 	}
 
 	session, err := s.queries.CreateSession(ctx, db.CreateSessionParams{
@@ -161,33 +162,28 @@ func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, descr
 		return nil, fmt.Errorf("failed to create work session: %w", err)
 	}
 
-	var sessionRate *float64
-	if session.HourlyRate.Valid {
-		sessionRate = &session.HourlyRate.Float64
-	}
-
 	return &models.WorkSession{
 		ID:          session.ID,
 		ClientID:    session.ClientID,
 		StartTime:   session.StartTime,
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
-		HourlyRate:  sessionRate,
+		HourlyRate:  nullDecimalToPtr(session.HourlyRate),
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
 }
 
-func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error) {
+func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
 		desc = sql.NullString{String: *description, Valid: true}
 	}
 
-	var rate sql.NullFloat64
-	if hourlyRate > 0 {
-		rate = sql.NullFloat64{Float64: hourlyRate, Valid: true}
+	var rate decimal.NullDecimal
+	if hourlyRate.GreaterThan(decimal.Zero) {
+		rate = decimal.NullDecimal{Decimal: hourlyRate, Valid: true}
 	}
 
 	session, err := s.queries.CreateSession(ctx, db.CreateSessionParams{
@@ -201,33 +197,28 @@ func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID 
 		return nil, fmt.Errorf("failed to create work session: %w", err)
 	}
 
-	var sessionRate *float64
-	if session.HourlyRate.Valid {
-		sessionRate = &session.HourlyRate.Float64
-	}
-
 	return &models.WorkSession{
 		ID:          session.ID,
 		ClientID:    session.ClientID,
 		StartTime:   session.StartTime,
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
-		HourlyRate:  sessionRate,
+		HourlyRate:  nullDecimalToPtr(session.HourlyRate),
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
 }
 
-func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error) {
+func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
 		desc = sql.NullString{String: *description, Valid: true}
 	}
 
-	var rate sql.NullFloat64
-	if hourlyRate > 0 {
-		rate = sql.NullFloat64{Float64: hourlyRate, Valid: true}
+	var rate decimal.NullDecimal
+	if hourlyRate.GreaterThan(decimal.Zero) {
+		rate = decimal.NullDecimal{Decimal: hourlyRate, Valid: true}
 	}
 
 	session, err := s.queries.CreateSession(ctx, db.CreateSessionParams{
@@ -250,18 +241,13 @@ func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID stri
 		return nil, fmt.Errorf("failed to set end time on session: %w", err)
 	}
 
-	var sessionRate *float64
-	if updatedSession.HourlyRate.Valid {
-		sessionRate = &updatedSession.HourlyRate.Float64
-	}
-
 	return &models.WorkSession{
 		ID:          updatedSession.ID,
 		ClientID:    updatedSession.ClientID,
 		StartTime:   updatedSession.StartTime,
 		EndTime:     nullTimeToPtr(updatedSession.EndTime),
 		Description: nullStringToPtr(updatedSession.Description),
-		HourlyRate:  sessionRate,
+		HourlyRate:  nullDecimalToPtr(updatedSession.HourlyRate),
 		OutsideGit:  nullStringToPtr(updatedSession.OutsideGit),
 		CreatedAt:   updatedSession.CreatedAt,
 		UpdatedAt:   updatedSession.UpdatedAt,
@@ -277,9 +263,9 @@ func (s *SQLiteDB) GetActiveSession(ctx context.Context) (*models.WorkSession, e
 		return nil, fmt.Errorf("failed to get active session: %w", err)
 	}
 
-	var sessionRate *float64
+	sessionRate := decimal.Zero
 	if session.HourlyRate.Valid {
-		sessionRate = &session.HourlyRate.Float64
+		sessionRate = session.HourlyRate.Decimal
 	}
 
 	return &models.WorkSession{
@@ -288,7 +274,7 @@ func (s *SQLiteDB) GetActiveSession(ctx context.Context) (*models.WorkSession, e
 		StartTime:   session.StartTime,
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
-		HourlyRate:  sessionRate,
+		HourlyRate:  &sessionRate,
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
@@ -305,9 +291,9 @@ func (s *SQLiteDB) StopWorkSession(ctx context.Context, sessionID string) (*mode
 		return nil, fmt.Errorf("failed to stop work session: %w", err)
 	}
 
-	var sessionRate *float64
+	sessionRate := decimal.Zero
 	if session.HourlyRate.Valid {
-		sessionRate = &session.HourlyRate.Float64
+		sessionRate = session.HourlyRate.Decimal
 	}
 
 	return &models.WorkSession{
@@ -316,7 +302,7 @@ func (s *SQLiteDB) StopWorkSession(ctx context.Context, sessionID string) (*mode
 		StartTime:   session.StartTime,
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
-		HourlyRate:  sessionRate,
+		HourlyRate:  &sessionRate,
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
@@ -331,9 +317,9 @@ func (s *SQLiteDB) ListRecentSessions(ctx context.Context, limit int32) ([]*mode
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
-		var sessionRate *float64
+		sessionRate := decimal.Zero
 		if session.HourlyRate.Valid {
-			sessionRate = &session.HourlyRate.Float64
+			sessionRate = session.HourlyRate.Decimal
 		}
 
 		result[i] = &models.WorkSession{
@@ -342,7 +328,7 @@ func (s *SQLiteDB) ListRecentSessions(ctx context.Context, limit int32) ([]*mode
 			StartTime:       session.StartTime,
 			EndTime:         nullTimeToPtr(session.EndTime),
 			Description:     nullStringToPtr(session.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			CreatedAt:       session.CreatedAt,
@@ -375,9 +361,9 @@ func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDa
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
-		var sessionRate *float64
+		sessionRate := decimal.Zero
 		if session.HourlyRate.Valid {
-			sessionRate = &session.HourlyRate.Float64
+			sessionRate = session.HourlyRate.Decimal
 		}
 
 		result[i] = &models.WorkSession{
@@ -386,7 +372,7 @@ func (s *SQLiteDB) ListSessionsWithDateRange(ctx context.Context, fromDate, toDa
 			StartTime:       session.StartTime,
 			EndTime:         nullTimeToPtr(session.EndTime),
 			Description:     nullStringToPtr(session.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			CreatedAt:       session.CreatedAt,
@@ -411,9 +397,9 @@ func (s *SQLiteDB) ListSessionsByClient(ctx context.Context, clientName string, 
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
-		var sessionRate *float64
+		sessionRate := decimal.Zero
 		if session.HourlyRate.Valid {
-			sessionRate = &session.HourlyRate.Float64
+			sessionRate = session.HourlyRate.Decimal
 		}
 
 		result[i] = &models.WorkSession{
@@ -422,7 +408,7 @@ func (s *SQLiteDB) ListSessionsByClient(ctx context.Context, clientName string, 
 			StartTime:       session.StartTime,
 			EndTime:         nullTimeToPtr(session.EndTime),
 			Description:     nullStringToPtr(session.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			CreatedAt:       session.CreatedAt,
@@ -437,7 +423,7 @@ func (s *SQLiteDB) ListSessionsByClient(ctx context.Context, clientName string, 
 func (s *SQLiteDB) UpdateClient(ctx context.Context, clientID string, updates *ClientUpdateDetails) (*models.Client, error) {
 	client, err := s.queries.UpdateClient(ctx, db.UpdateClientParams{
 		ID:             clientID,
-		HourlyRate:     sql.NullFloat64{Float64: *updates.HourlyRate, Valid: true},
+		HourlyRate:     decimal.NullDecimal{Decimal: *updates.HourlyRate, Valid: true},
 		CompanyName:    ptrToNullString(updates.CompanyName),
 		ContactName:    ptrToNullString(updates.ContactName),
 		Email:          ptrToNullString(updates.Email),
@@ -450,7 +436,7 @@ func (s *SQLiteDB) UpdateClient(ctx context.Context, clientID string, updates *C
 		Country:        ptrToNullString(updates.Country),
 		Abn:            ptrToNullString(updates.Abn),
 		Dir:            ptrToNullString(updates.Dir),
-		RetainerAmount: ptrToNullFloat64(updates.RetainerAmount),
+		RetainerAmount: ptrToNullDecimal(updates.RetainerAmount),
 		RetainerHours:  ptrToNullFloat64(updates.RetainerHours),
 		RetainerBasis:  ptrToNullString(updates.RetainerBasis),
 	})
@@ -510,11 +496,10 @@ func nullFloat64ToPtr(nf sql.NullFloat64) *float64 {
 }
 
 func (s *SQLiteDB) convertDBClientToModel(client db.Client) *models.Client {
-	var rate float64
+	var rate decimal.Decimal
 	if client.HourlyRate.Valid {
-		rate = client.HourlyRate.Float64
+		rate = client.HourlyRate.Decimal
 	}
-
 	return &models.Client{
 		ID:             client.ID,
 		Name:           client.Name,
@@ -531,7 +516,7 @@ func (s *SQLiteDB) convertDBClientToModel(client db.Client) *models.Client {
 		Country:        nullStringToPtr(client.Country),
 		Abn:            nullStringToPtr(client.Abn),
 		Dir:            nullStringToPtr(client.Dir),
-		RetainerAmount: nullFloat64ToPtr(client.RetainerAmount),
+		RetainerAmount: nullDecimalToPtr(client.RetainerAmount),
 		RetainerHours:  nullFloat64ToPtr(client.RetainerHours),
 		RetainerBasis:  nullStringToPtr(client.RetainerBasis),
 		CreatedAt:      client.CreatedAt,
@@ -553,12 +538,26 @@ func ptrToNullFloat64(f *float64) sql.NullFloat64 {
 	return sql.NullFloat64{Valid: false}
 }
 
+func ptrToNullDecimal(d *decimal.Decimal) decimal.NullDecimal {
+	if d != nil {
+		return decimal.NullDecimal{Decimal: *d, Valid: true}
+	}
+	return decimal.NullDecimal{Valid: false}
+}
+
+func nullDecimalToPtr(nd decimal.NullDecimal) *decimal.Decimal {
+	if nd.Valid {
+		return &nd.Decimal
+	}
+	return nil
+}
+
 func (s *SQLiteDB) convertDBSessionToModel(session interface{}) *models.WorkSession {
 	switch dbSession := session.(type) {
 	case db.Session:
-		var sessionRate *float64
+		rate := decimal.Zero
 		if dbSession.HourlyRate.Valid {
-			sessionRate = &dbSession.HourlyRate.Float64
+			rate = dbSession.HourlyRate.Decimal
 		}
 		return &models.WorkSession{
 			ID:              dbSession.ID,
@@ -566,7 +565,7 @@ func (s *SQLiteDB) convertDBSessionToModel(session interface{}) *models.WorkSess
 			StartTime:       dbSession.StartTime,
 			EndTime:         nullTimeToPtr(dbSession.EndTime),
 			Description:     nullStringToPtr(dbSession.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &rate,
 			FullWorkSummary: nullStringToPtr(dbSession.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(dbSession.OutsideGit),
 			CreatedAt:       dbSession.CreatedAt,
@@ -598,9 +597,9 @@ func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
-		var sessionRate *float64
+		sessionRate := decimal.Zero
 		if session.HourlyRate.Valid {
-			sessionRate = &session.HourlyRate.Float64
+			sessionRate = session.HourlyRate.Decimal
 		}
 
 		result[i] = &models.WorkSession{
@@ -609,7 +608,7 @@ func (s *SQLiteDB) GetSessionsWithoutDescription(ctx context.Context, clientName
 			StartTime:       session.StartTime,
 			EndTime:         nullTimeToPtr(session.EndTime),
 			Description:     nullStringToPtr(session.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			CreatedAt:       session.CreatedAt,
@@ -631,9 +630,9 @@ func (s *SQLiteDB) UpdateSessionDescription(ctx context.Context, sessionID strin
 		return nil, fmt.Errorf("failed to update session description: %w", err)
 	}
 
-	var sessionRate *float64
+	sessionRate := decimal.Zero
 	if session.HourlyRate.Valid {
-		sessionRate = &session.HourlyRate.Float64
+		sessionRate = session.HourlyRate.Decimal
 	}
 
 	return &models.WorkSession{
@@ -642,7 +641,7 @@ func (s *SQLiteDB) UpdateSessionDescription(ctx context.Context, sessionID strin
 		StartTime:       session.StartTime,
 		EndTime:         nullTimeToPtr(session.EndTime),
 		Description:     nullStringToPtr(session.Description),
-		HourlyRate:      sessionRate,
+		HourlyRate:      &sessionRate,
 		FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 		OutsideGit:      nullStringToPtr(session.OutsideGit),
 		CreatedAt:       session.CreatedAt,
@@ -656,9 +655,9 @@ func (s *SQLiteDB) GetSessionByID(ctx context.Context, sessionID string) (*model
 		return nil, fmt.Errorf("failed to get session by ID: %w", err)
 	}
 
-	var sessionRate *float64
+	sessionRate := decimal.Zero
 	if session.HourlyRate.Valid {
-		sessionRate = &session.HourlyRate.Float64
+		sessionRate = session.HourlyRate.Decimal
 	}
 
 	return &models.WorkSession{
@@ -667,7 +666,7 @@ func (s *SQLiteDB) GetSessionByID(ctx context.Context, sessionID string) (*model
 		StartTime:       session.StartTime,
 		EndTime:         nullTimeToPtr(session.EndTime),
 		Description:     nullStringToPtr(session.Description),
-		HourlyRate:      sessionRate,
+		HourlyRate:      &sessionRate,
 		FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 		OutsideGit:      nullStringToPtr(session.OutsideGit),
 		CreatedAt:       session.CreatedAt,
@@ -685,9 +684,9 @@ func (s *SQLiteDB) UpdateSessionOutsideGit(ctx context.Context, sessionID string
 		return nil, fmt.Errorf("failed to update session outside git: %w", err)
 	}
 
-	var sessionRate *float64
+	sessionRate := decimal.Zero
 	if session.HourlyRate.Valid {
-		sessionRate = &session.HourlyRate.Float64
+		sessionRate = session.HourlyRate.Decimal
 	}
 
 	return &models.WorkSession{
@@ -696,7 +695,7 @@ func (s *SQLiteDB) UpdateSessionOutsideGit(ctx context.Context, sessionID string
 		StartTime:       session.StartTime,
 		EndTime:         nullTimeToPtr(session.EndTime),
 		Description:     nullStringToPtr(session.Description),
-		HourlyRate:      sessionRate,
+		HourlyRate:      &sessionRate,
 		FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 		OutsideGit:      nullStringToPtr(session.OutsideGit),
 		CreatedAt:       session.CreatedAt,
@@ -706,7 +705,7 @@ func (s *SQLiteDB) UpdateSessionOutsideGit(ctx context.Context, sessionID string
 
 // Invoice methods
 
-func (s *SQLiteDB) CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total float64) (*models.Invoice, error) {
+func (s *SQLiteDB) CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total decimal.Decimal) (*models.Invoice, error) {
 	invoice, err := s.queries.CreateInvoice(ctx, db.CreateInvoiceParams{
 		ID:              models.NewUUID(),
 		ClientID:        clientID,
@@ -808,9 +807,9 @@ func (s *SQLiteDB) GetSessionsForPeriodWithoutInvoice(ctx context.Context, start
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
-		var sessionRate *float64
+		sessionRate := decimal.Zero
 		if session.HourlyRate.Valid {
-			sessionRate = &session.HourlyRate.Float64
+			sessionRate = session.HourlyRate.Decimal
 		}
 
 		result[i] = &models.WorkSession{
@@ -819,7 +818,7 @@ func (s *SQLiteDB) GetSessionsForPeriodWithoutInvoice(ctx context.Context, start
 			StartTime:       session.StartTime,
 			EndTime:         nullTimeToPtr(session.EndTime),
 			Description:     nullStringToPtr(session.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			InvoiceID:       nullStringToPtr(session.InvoiceID),
@@ -840,9 +839,9 @@ func (s *SQLiteDB) GetSessionsByInvoiceID(ctx context.Context, invoiceID string)
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
-		var sessionRate *float64
+		sessionRate := decimal.Zero
 		if session.HourlyRate.Valid {
-			sessionRate = &session.HourlyRate.Float64
+			sessionRate = session.HourlyRate.Decimal
 		}
 
 		result[i] = &models.WorkSession{
@@ -851,7 +850,7 @@ func (s *SQLiteDB) GetSessionsByInvoiceID(ctx context.Context, invoiceID string)
 			StartTime:       session.StartTime,
 			EndTime:         nullTimeToPtr(session.EndTime),
 			Description:     nullStringToPtr(session.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			InvoiceID:       nullStringToPtr(session.InvoiceID),
@@ -895,9 +894,9 @@ func (s *SQLiteDB) GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Contex
 
 	result := make([]*models.WorkSession, len(sessions))
 	for i, session := range sessions {
-		var sessionRate *float64
+		sessionRate := decimal.Zero
 		if session.HourlyRate.Valid {
-			sessionRate = &session.HourlyRate.Float64
+			sessionRate = session.HourlyRate.Decimal
 		}
 
 		result[i] = &models.WorkSession{
@@ -906,7 +905,7 @@ func (s *SQLiteDB) GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Contex
 			StartTime:       session.StartTime,
 			EndTime:         nullTimeToPtr(session.EndTime),
 			Description:     nullStringToPtr(session.Description),
-			HourlyRate:      sessionRate,
+			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
 			InvoiceID:       nullStringToPtr(session.InvoiceID),
@@ -960,7 +959,7 @@ func (s *SQLiteDB) convertDBInvoicesByPeriodAndClientRowToModel(invoice db.GetIn
 		GstAmount:       invoice.GstAmount,
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
-		AmountPaid:      invoice.AmountPaid,
+		AmountPaid:      decimal.NewFromFloat(invoice.AmountPaid),
 		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
@@ -1031,7 +1030,7 @@ func (s *SQLiteDB) convertDBInvoiceRowToModel(invoice db.GetInvoiceByIDRow) *mod
 		GstAmount:       invoice.GstAmount,
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
-		AmountPaid:      invoice.AmountPaid,
+		AmountPaid:      decimal.NewFromFloat(invoice.AmountPaid),
 		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
@@ -1053,7 +1052,7 @@ func (s *SQLiteDB) convertDBInvoiceListRowToModel(invoice db.ListInvoicesRow) *m
 		GstAmount:       invoice.GstAmount,
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
-		AmountPaid:      invoice.AmountPaid,
+		AmountPaid:      decimal.NewFromFloat(invoice.AmountPaid),
 		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
@@ -1075,7 +1074,7 @@ func (s *SQLiteDB) convertDBInvoicesByClientRowToModel(invoice db.GetInvoicesByC
 		GstAmount:       invoice.GstAmount,
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
-		AmountPaid:      invoice.AmountPaid,
+		AmountPaid:      decimal.NewFromFloat(invoice.AmountPaid),
 		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
@@ -1097,7 +1096,7 @@ func (s *SQLiteDB) convertDBInvoicesByPeriodRowToModel(invoice db.GetInvoicesByP
 		GstAmount:       invoice.GstAmount,
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
-		AmountPaid:      invoice.AmountPaid,
+		AmountPaid:      decimal.NewFromFloat(invoice.AmountPaid),
 		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,
@@ -1119,7 +1118,7 @@ func (s *SQLiteDB) convertDBInvoiceByNumberRowToModel(invoice db.GetInvoiceByNum
 		GstAmount:       invoice.GstAmount,
 		TotalAmount:     invoice.TotalAmount,
 		GeneratedDate:   invoice.GeneratedDate,
-		AmountPaid:      invoice.AmountPaid,
+		AmountPaid:      decimal.NewFromFloat(invoice.AmountPaid),
 		PaymentDate:     paymentDate,
 		CreatedAt:       invoice.CreatedAt,
 		UpdatedAt:       invoice.UpdatedAt,

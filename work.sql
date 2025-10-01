@@ -53,7 +53,7 @@ CREATE INDEX idx_sessions_invoice_id on sessions(invoice_id);
 CREATE TRIGGER invoices_updated_at 
     after update on "invoices_backup_before_datetime_migration" 
     begin
-        update invoices set updated_at = current_timestamp where id = new.id;
+        update "invoices_backup_before_datetime_migration" set updated_at = current_timestamp where id = new.id;
     end;
 CREATE TABLE IF NOT EXISTS "payments_backup_before_datetime_migration" (
 	id text primary key not null, -- uuid v7
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS "payments_backup_before_datetime_migration" (
 	payment_date datetime not null,
 	created_at datetime default current_timestamp not null,
 	updated_at datetime default current_timestamp not null,
-	foreign key (invoice_id) references invoices(id)
+	foreign key (invoice_id) references "invoices_backup_before_datetime_migration"(id)
 );
 CREATE TABLE IF NOT EXISTS "invoices" (
     id text primary key not null, -- uuid v7

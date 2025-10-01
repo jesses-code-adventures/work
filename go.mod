@@ -7,6 +7,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/mattn/go-sqlite3 v1.14.31
+	github.com/shopspring/decimal v1.4.0
 	github.com/spf13/cobra v1.9.1
 	github.com/tursodatabase/libsql-client-go v0.0.0-20240902231107-85af5b9d094d
 )

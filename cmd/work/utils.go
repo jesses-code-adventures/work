@@ -6,6 +6,7 @@ import (
 
 	"github.com/jesses-code-adventures/work/internal/models"
 	"github.com/jesses-code-adventures/work/internal/service"
+	"github.com/shopspring/decimal"
 )
 
 // shellescape escapes a string for safe use in shell commands
@@ -71,10 +72,10 @@ func groupSessionsByClient(sessions []*models.WorkSession) map[string][]*models.
 	return clientSessions
 }
 
-func calculateClientTotal(timesheetService *service.TimesheetService, sessions []*models.WorkSession) float64 {
-	total := 0.0
+func calculateClientTotal(timesheetService *service.TimesheetService, sessions []*models.WorkSession) decimal.Decimal {
+	total := decimal.Zero
 	for _, session := range sessions {
-		total += timesheetService.CalculateBillableAmount(session)
+		total = total.Add(timesheetService.CalculateBillableAmount(session))
 	}
 	return total
 }

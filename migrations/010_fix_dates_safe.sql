@@ -98,18 +98,6 @@ ALTER TABLE payments RENAME TO payments_backup_before_datetime_migration;
 -- Then rename the new table to payments (this should always work)
 ALTER TABLE payments_new RENAME TO payments;
 
--- Step 3: Recreate indexes
-CREATE INDEX idx_invoices_client_id ON invoices(client_id);
-CREATE INDEX idx_invoices_invoice_number ON invoices(invoice_number);
-CREATE INDEX idx_invoices_period_dates ON invoices(period_start_date, period_end_date);
-
--- Recreate trigger
-CREATE TRIGGER invoices_updated_at 
-    AFTER UPDATE ON invoices 
-    BEGIN
-        UPDATE invoices SET updated_at = current_timestamp WHERE id = NEW.id;
-    END;
-
 -- Step 4: Recreate the view
 CREATE VIEW v_invoices AS
 SELECT 

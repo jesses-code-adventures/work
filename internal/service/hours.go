@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jesses-code-adventures/work/internal/models"
+	"github.com/shopspring/decimal"
 )
 
 // ShowTotalHours displays total worked hours with optional filtering
@@ -73,17 +74,17 @@ func (s *TimesheetService) ShowTotalHours(ctx context.Context, client, period, p
 
 	// Calculate total hours and billable amount
 	totalDuration := time.Duration(0)
-	totalBillable := 0.0
+	totalBillable := decimal.Zero
 	for _, session := range sessions {
 		duration := s.CalculateDuration(session)
 		totalDuration += duration
-		totalBillable += s.CalculateBillableAmount(session)
+		totalBillable = totalBillable.Add(s.CalculateBillableAmount(session))
 	}
 
 	totalHours := totalDuration.Hours()
 	fmt.Printf("%.1f hours", totalHours)
 
-	if totalBillable > 0 {
+	if totalBillable.GreaterThan(decimal.Zero) {
 		fmt.Printf(" | %s", s.FormatBillableAmountWithGST(totalBillable))
 	}
 	fmt.Println()

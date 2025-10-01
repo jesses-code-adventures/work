@@ -10,6 +10,7 @@ import (
 	"github.com/jesses-code-adventures/work/internal/config"
 	"github.com/jesses-code-adventures/work/internal/database"
 	"github.com/jesses-code-adventures/work/internal/models"
+	"github.com/shopspring/decimal"
 )
 
 type TimesheetService struct {
@@ -102,8 +103,8 @@ func (s *TimesheetService) CreateSessionWithTimes(ctx context.Context, clientNam
 		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	var hourlyRate float64
-	if client.HourlyRate > 0 {
+	var hourlyRate decimal.Decimal
+	if client.HourlyRate.GreaterThan(decimal.Zero) {
 		hourlyRate = client.HourlyRate
 	}
 
@@ -163,7 +164,7 @@ func (s *TimesheetService) DeleteSessionsByDateRange(ctx context.Context, fromDa
 	return s.db.DeleteSessionsByDateRange(ctx, from, to)
 }
 
-func (s *TimesheetService) CreateClient(ctx context.Context, name string, hourlyRate float64, retainerAmount, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error) {
+func (s *TimesheetService) CreateClient(ctx context.Context, name string, hourlyRate decimal.Decimal, retainerAmount *decimal.Decimal, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error) {
 	existing, err := s.db.GetClientByName(ctx, name)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to check for existing client: %w", err)
@@ -172,7 +173,6 @@ func (s *TimesheetService) CreateClient(ctx context.Context, name string, hourly
 	if existing != nil {
 		return nil, fmt.Errorf("client '%s' already exists", name)
 	}
-
 	return s.db.CreateClient(ctx, name, hourlyRate, retainerAmount, retainerHours, retainerBasis, dir)
 }
 
@@ -205,7 +205,7 @@ func (s *TimesheetService) UpdateClient(ctx context.Context, clientName string, 
 
 func (s *TimesheetService) DisplayClient(ctx context.Context, client *models.Client) {
 	fmt.Printf("Client: %s\n", client.Name)
-	if client.HourlyRate != 0.0 {
+	if !client.HourlyRate.Equal(decimal.Zero) {
 		fmt.Printf("Rate: %s\n", s.FormatBillableAmount(client.HourlyRate))
 	}
 	if client.CompanyName != nil {
@@ -247,7 +247,7 @@ func (s *TimesheetService) DisplayClient(ctx context.Context, client *models.Cli
 		fmt.Printf("ABN: %s\n", *client.Abn)
 	}
 	if client.RetainerAmount != nil && client.RetainerHours != nil && client.RetainerBasis != nil {
-		fmt.Printf("Retainer: $%.2f for %.1f hours per %s\n", *client.RetainerAmount, *client.RetainerHours, *client.RetainerBasis)
+		fmt.Printf("Retainer: $%s for %.1f hours per %s\n", client.RetainerAmount.StringFixed(2), *client.RetainerHours, *client.RetainerBasis)
 	}
 }
 
@@ -264,34 +264,34 @@ func (s *TimesheetService) FormatDuration(d time.Duration) string {
 	return fmt.Sprintf("%dh %dm", hours, minutes)
 }
 
-func (s *TimesheetService) CalculateBillableAmount(session *models.WorkSession) float64 {
-	if session.HourlyRate == nil || *session.HourlyRate <= 0 {
-		return 0.0
+func (s *TimesheetService) CalculateBillableAmount(session *models.WorkSession) decimal.Decimal {
+	if session.HourlyRate == nil || session.HourlyRate.LessThanOrEqual(decimal.Zero) {
+		return decimal.Zero
 	}
 
 	duration := s.CalculateDuration(session)
 	hours := duration.Hours()
-	return hours * (*session.HourlyRate)
+	return decimal.NewFromFloat(hours).Mul(*session.HourlyRate)
 }
 
-func (s *TimesheetService) FormatBillableAmount(amount float64) string {
-	if amount <= 0 {
+func (s *TimesheetService) FormatBillableAmount(amount decimal.Decimal) string {
+	if amount.LessThanOrEqual(decimal.Zero) {
 		return "$0.00"
 	}
 	return s.FormatBillableAmountWithGST(amount)
 }
 
-func (s *TimesheetService) FormatBillableAmountWithGST(amount float64) string {
-	if amount <= 0 {
+func (s *TimesheetService) FormatBillableAmountWithGST(amount decimal.Decimal) string {
+	if amount.LessThanOrEqual(decimal.Zero) {
 		return "$0.00"
 	}
 
 	if s.cfg.GSTRegistered {
-		total := amount * 1.1 // Add 10% GST
-		return fmt.Sprintf("$%.2f ($%.2f inc. GST)", amount, total)
+		total := amount.Mul(decimal.NewFromFloat(1.1)) // Add 10% GST
+		return fmt.Sprintf("$%s ($%s inc. GST)", amount.StringFixed(2), total.StringFixed(2))
 	}
 
-	return fmt.Sprintf("$%.2f", amount)
+	return fmt.Sprintf("$%s", amount.StringFixed(2))
 }
 
 func (s *TimesheetService) formatDateForQuery(dateStr string, isStart bool) string {

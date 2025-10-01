@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"database/sql"
+
+	"github.com/shopspring/decimal"
 )
 
 const createClient = `-- name: CreateClient :one
@@ -17,24 +19,24 @@ RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_n
 `
 
 type CreateClientParams struct {
-	ID             string          `db:"id" json:"id"`
-	Name           string          `db:"name" json:"name"`
-	HourlyRate     sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	CompanyName    sql.NullString  `db:"company_name" json:"company_name"`
-	ContactName    sql.NullString  `db:"contact_name" json:"contact_name"`
-	Email          sql.NullString  `db:"email" json:"email"`
-	Phone          sql.NullString  `db:"phone" json:"phone"`
-	AddressLine1   sql.NullString  `db:"address_line1" json:"address_line1"`
-	AddressLine2   sql.NullString  `db:"address_line2" json:"address_line2"`
-	City           sql.NullString  `db:"city" json:"city"`
-	State          sql.NullString  `db:"state" json:"state"`
-	PostalCode     sql.NullString  `db:"postal_code" json:"postal_code"`
-	Country        sql.NullString  `db:"country" json:"country"`
-	Abn            sql.NullString  `db:"abn" json:"abn"`
-	Dir            sql.NullString  `db:"dir" json:"dir"`
-	RetainerAmount sql.NullFloat64 `db:"retainer_amount" json:"retainer_amount"`
-	RetainerHours  sql.NullFloat64 `db:"retainer_hours" json:"retainer_hours"`
-	RetainerBasis  sql.NullString  `db:"retainer_basis" json:"retainer_basis"`
+	ID             string              `db:"id" json:"id"`
+	Name           string              `db:"name" json:"name"`
+	HourlyRate     decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	CompanyName    sql.NullString      `db:"company_name" json:"company_name"`
+	ContactName    sql.NullString      `db:"contact_name" json:"contact_name"`
+	Email          sql.NullString      `db:"email" json:"email"`
+	Phone          sql.NullString      `db:"phone" json:"phone"`
+	AddressLine1   sql.NullString      `db:"address_line1" json:"address_line1"`
+	AddressLine2   sql.NullString      `db:"address_line2" json:"address_line2"`
+	City           sql.NullString      `db:"city" json:"city"`
+	State          sql.NullString      `db:"state" json:"state"`
+	PostalCode     sql.NullString      `db:"postal_code" json:"postal_code"`
+	Country        sql.NullString      `db:"country" json:"country"`
+	Abn            sql.NullString      `db:"abn" json:"abn"`
+	Dir            sql.NullString      `db:"dir" json:"dir"`
+	RetainerAmount decimal.NullDecimal `db:"retainer_amount" json:"retainer_amount"`
+	RetainerHours  sql.NullFloat64     `db:"retainer_hours" json:"retainer_hours"`
+	RetainerBasis  sql.NullString      `db:"retainer_basis" json:"retainer_basis"`
 }
 
 func (q *Queries) CreateClient(ctx context.Context, arg CreateClientParams) (Client, error) {
@@ -273,23 +275,23 @@ RETURNING id, name, created_at, updated_at, hourly_rate, company_name, contact_n
 `
 
 type UpdateClientParams struct {
-	HourlyRate     sql.NullFloat64 `db:"hourly_rate" json:"hourly_rate"`
-	CompanyName    sql.NullString  `db:"company_name" json:"company_name"`
-	ContactName    sql.NullString  `db:"contact_name" json:"contact_name"`
-	Email          sql.NullString  `db:"email" json:"email"`
-	Phone          sql.NullString  `db:"phone" json:"phone"`
-	AddressLine1   sql.NullString  `db:"address_line1" json:"address_line1"`
-	AddressLine2   sql.NullString  `db:"address_line2" json:"address_line2"`
-	City           sql.NullString  `db:"city" json:"city"`
-	State          sql.NullString  `db:"state" json:"state"`
-	PostalCode     sql.NullString  `db:"postal_code" json:"postal_code"`
-	Country        sql.NullString  `db:"country" json:"country"`
-	Abn            sql.NullString  `db:"abn" json:"abn"`
-	Dir            sql.NullString  `db:"dir" json:"dir"`
-	RetainerAmount sql.NullFloat64 `db:"retainer_amount" json:"retainer_amount"`
-	RetainerHours  sql.NullFloat64 `db:"retainer_hours" json:"retainer_hours"`
-	RetainerBasis  sql.NullString  `db:"retainer_basis" json:"retainer_basis"`
-	ID             string          `db:"id" json:"id"`
+	HourlyRate     decimal.NullDecimal `db:"hourly_rate" json:"hourly_rate"`
+	CompanyName    sql.NullString      `db:"company_name" json:"company_name"`
+	ContactName    sql.NullString      `db:"contact_name" json:"contact_name"`
+	Email          sql.NullString      `db:"email" json:"email"`
+	Phone          sql.NullString      `db:"phone" json:"phone"`
+	AddressLine1   sql.NullString      `db:"address_line1" json:"address_line1"`
+	AddressLine2   sql.NullString      `db:"address_line2" json:"address_line2"`
+	City           sql.NullString      `db:"city" json:"city"`
+	State          sql.NullString      `db:"state" json:"state"`
+	PostalCode     sql.NullString      `db:"postal_code" json:"postal_code"`
+	Country        sql.NullString      `db:"country" json:"country"`
+	Abn            sql.NullString      `db:"abn" json:"abn"`
+	Dir            sql.NullString      `db:"dir" json:"dir"`
+	RetainerAmount decimal.NullDecimal `db:"retainer_amount" json:"retainer_amount"`
+	RetainerHours  sql.NullFloat64     `db:"retainer_hours" json:"retainer_hours"`
+	RetainerBasis  sql.NullString      `db:"retainer_basis" json:"retainer_basis"`
+	ID             string              `db:"id" json:"id"`
 }
 
 func (q *Queries) UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error) {

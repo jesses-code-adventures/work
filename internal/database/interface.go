@@ -6,10 +6,11 @@ import (
 
 	"github.com/jesses-code-adventures/work/internal/db"
 	"github.com/jesses-code-adventures/work/internal/models"
+	"github.com/shopspring/decimal"
 )
 
 type ClientUpdateDetails struct {
-	HourlyRate     *float64
+	HourlyRate     *decimal.Decimal
 	CompanyName    *string
 	ContactName    *string
 	Email          *string
@@ -22,7 +23,7 @@ type ClientUpdateDetails struct {
 	Country        *string
 	Abn            *string
 	Dir            *string
-	RetainerAmount *float64
+	RetainerAmount *decimal.Decimal
 	RetainerHours  *float64
 	RetainerBasis  *string
 }
@@ -30,16 +31,16 @@ type ClientUpdateDetails struct {
 type DB interface {
 	Close() error
 
-	CreateClient(ctx context.Context, name string, hourlyRate float64, retainerAmount, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error)
+	CreateClient(ctx context.Context, name string, hourlyRate decimal.Decimal, retainerAmount *decimal.Decimal, retainerHours *float64, retainerBasis, dir *string) (*models.Client, error)
 	GetClientByName(ctx context.Context, name string) (*models.Client, error)
 	GetClientByID(ctx context.Context, ID string) (*models.Client, error)
 	ListClients(ctx context.Context) ([]*models.Client, error)
 	GetClientsWithDirectories(ctx context.Context) ([]*models.Client, error)
 	UpdateClient(ctx context.Context, clientID string, billing *ClientUpdateDetails) (*models.Client, error)
 
-	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate float64) (*models.WorkSession, error)
-	CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error)
-	CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate float64) (*models.WorkSession, error)
+	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error)
+	CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error)
+	CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error)
 	GetActiveSession(ctx context.Context) (*models.WorkSession, error)
 	StopWorkSession(ctx context.Context, sessionID string) (*models.WorkSession, error)
 	ListRecentSessions(ctx context.Context, limit int32) ([]*models.WorkSession, error)
@@ -53,7 +54,7 @@ type DB interface {
 	DeleteSessionsByDateRange(ctx context.Context, fromDate, toDate string) error
 
 	// Invoice operations
-	CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total float64) (*models.Invoice, error)
+	CreateInvoice(ctx context.Context, clientID, invoiceNumber, periodType string, periodStart, periodEnd time.Time, subtotal, gst, total decimal.Decimal) (*models.Invoice, error)
 	GetInvoiceByID(ctx context.Context, invoiceID string) (*models.Invoice, error)
 	PayInvoice(ctx context.Context, param db.PayInvoiceParams) error
 	GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (*models.Invoice, error)

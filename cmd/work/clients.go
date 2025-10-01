@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/shopspring/decimal"
+	"github.com/spf13/cobra"
+
 	"github.com/jesses-code-adventures/work/internal/database"
 	"github.com/jesses-code-adventures/work/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func newClientsCmd(timesheetService *service.TimesheetService) *cobra.Command {
@@ -61,11 +63,13 @@ func newClientsCreateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 
 func createClient(ctx context.Context, timesheetService *service.TimesheetService, name string, rate float64, retainerAmount, retainerHours float64, retainerBasis, dir string) error {
 	// Convert fields to pointers (nil if zero/empty)
-	var retainerAmountPtr, retainerHoursPtr *float64
+	var retainerAmountPtr *decimal.Decimal
+	var retainerHoursPtr *float64
 	var retainerBasisPtr, dirPtr *string
 
 	if retainerAmount > 0 {
-		retainerAmountPtr = &retainerAmount
+		amt := decimal.NewFromFloat(retainerAmount)
+		retainerAmountPtr = &amt
 	}
 	if retainerHours > 0 {
 		retainerHoursPtr = &retainerHours
@@ -77,16 +81,16 @@ func createClient(ctx context.Context, timesheetService *service.TimesheetServic
 		dirPtr = &dir
 	}
 
-	client, err := timesheetService.CreateClient(ctx, name, rate, retainerAmountPtr, retainerHoursPtr, retainerBasisPtr, dirPtr)
+	client, err := timesheetService.CreateClient(ctx, name, decimal.NewFromFloat(rate), retainerAmountPtr, retainerHoursPtr, retainerBasisPtr, dirPtr)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Created client: %s (ID: %s, Rate: $%.2f/hr)\n", client.Name, client.ID, client.HourlyRate)
+	fmt.Printf("Created client: %s (ID: %s, Rate: $%s/hr)\n", client.Name, client.ID, client.HourlyRate.StringFixed(2))
 
 	// Show retainer info if set
-	if client.RetainerAmount != nil && *client.RetainerAmount > 0 {
-		fmt.Printf("Retainer: $%.2f for %.1f hours per %s\n", *client.RetainerAmount, *client.RetainerHours, *client.RetainerBasis)
+	if client.RetainerAmount != nil && client.RetainerAmount.GreaterThan(decimal.Zero) {
+		fmt.Printf("Retainer: $%s for %.1f hours per %s\n", client.RetainerAmount.StringFixed(2), *client.RetainerHours, *client.RetainerBasis)
 	}
 
 	// Show directory if set
@@ -117,8 +121,8 @@ func newClientsListCmd(timesheetService *service.TimesheetService) *cobra.Comman
 
 			fmt.Println("Clients:")
 			for _, client := range clients {
-				rateStr := fmt.Sprintf("$%.2f/hr", client.HourlyRate)
-				if client.HourlyRate == 0.0 {
+				rateStr := fmt.Sprintf("$%s/hr", client.HourlyRate.StringFixed(2))
+				if client.HourlyRate.Equal(decimal.Zero) {
 					rateStr = "No rate set"
 				}
 
@@ -179,8 +183,20 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 			return fmt.Errorf("client name is required")
 		}
 
+		var hourlyRateDecimal *decimal.Decimal
+		var retainerAmountDecimal *decimal.Decimal
+
+		if hourlyRate > 0 {
+			rate := decimal.NewFromFloat(hourlyRate)
+			hourlyRateDecimal = &rate
+		}
+		if retainerAmount > 0 {
+			amount := decimal.NewFromFloat(retainerAmount)
+			retainerAmountDecimal = &amount
+		}
+
 		updatedClient, err := timesheetService.UpdateClient(ctx, client, &database.ClientUpdateDetails{
-			HourlyRate:     &hourlyRate,
+			HourlyRate:     hourlyRateDecimal,
 			CompanyName:    &companyName,
 			ContactName:    &contactName,
 			Email:          &email,
@@ -193,7 +209,7 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 			Country:        &country,
 			Abn:            &abn,
 			Dir:            &dir,
-			RetainerAmount: &retainerAmount,
+			RetainerAmount: retainerAmountDecimal,
 			RetainerHours:  &retainerHours,
 			RetainerBasis:  &retainerBasis,
 		})

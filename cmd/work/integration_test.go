@@ -14,6 +14,7 @@ import (
 	"github.com/jesses-code-adventures/work/internal/config"
 	"github.com/jesses-code-adventures/work/internal/database"
 	"github.com/jesses-code-adventures/work/internal/service"
+	"github.com/shopspring/decimal"
 )
 
 func TestIntegrationWorkCommands(t *testing.T) {
@@ -56,7 +57,7 @@ func TestIntegrationWorkCommands(t *testing.T) {
 
 	t.Run("Work Start", func(t *testing.T) {
 		// First create a client
-		_, err := timesheetService.CreateClient(ctx, "test-client", 50.0, nil, nil, nil, nil)
+		_, err := timesheetService.CreateClient(ctx, "test-client", decimal.NewFromFloat(50.0), nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("Failed to create test client: %v", err)
 		}

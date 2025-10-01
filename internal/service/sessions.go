@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jesses-code-adventures/work/internal/models"
+	"github.com/shopspring/decimal"
 )
 
 // ParseTimeString parses time strings in various formats
@@ -43,7 +44,7 @@ func (s *TimesheetService) DisplaySession(session *models.WorkSession, verbose b
 	}
 
 	billableStr := ""
-	if billable > 0 {
+	if billable.GreaterThan(decimal.Zero) {
 		billableStr = fmt.Sprintf(" | %s", s.FormatBillableAmount(billable))
 	}
 
@@ -149,11 +150,11 @@ func (s *TimesheetService) ExportSessionsCSV(ctx context.Context, fromDate, toDa
 		}
 
 		hourlyRate := "0.00"
-		if session.HourlyRate != nil && *session.HourlyRate > 0 {
-			hourlyRate = fmt.Sprintf("%.2f", *session.HourlyRate)
+		if session.HourlyRate != nil && session.HourlyRate.GreaterThan(decimal.Zero) {
+			hourlyRate = session.HourlyRate.StringFixed(2)
 		}
 
-		billableAmount := fmt.Sprintf("%.2f", billable)
+		billableAmount := billable.StringFixed(2)
 
 		record := []string{
 			session.ID,
