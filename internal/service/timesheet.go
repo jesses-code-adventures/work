@@ -363,8 +363,8 @@ func (s *TimesheetService) AddSessionNote(ctx context.Context, sessionID string,
 }
 
 // Expense operations
-func (s *TimesheetService) CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error) {
-	return s.db.CreateExpense(ctx, amount, expenseDate, reference, clientID, invoiceID)
+func (s *TimesheetService) CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string, description *string) (*models.Expense, error) {
+	return s.db.CreateExpense(ctx, amount, expenseDate, reference, clientID, invoiceID, description)
 }
 
 func (s *TimesheetService) GetExpenseByID(ctx context.Context, expenseID string) (*models.Expense, error) {
@@ -395,7 +395,7 @@ func (s *TimesheetService) ListExpensesByClientAndDateRange(ctx context.Context,
 	return s.db.ListExpensesByClientAndDateRange(ctx, client.ID, startDate, endDate)
 }
 
-func (s *TimesheetService) UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientName *string, invoiceID *string) (*models.Expense, error) {
+func (s *TimesheetService) UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientName *string, invoiceID *string, description *string) (*models.Expense, error) {
 	var clientID *string
 	if clientName != nil && *clientName != "" {
 		client, err := s.db.GetClientByName(ctx, *clientName)
@@ -404,7 +404,7 @@ func (s *TimesheetService) UpdateExpense(ctx context.Context, expenseID string, 
 		}
 		clientID = &client.ID
 	}
-	return s.db.UpdateExpense(ctx, expenseID, amount, expenseDate, reference, clientID, invoiceID)
+	return s.db.UpdateExpense(ctx, expenseID, amount, expenseDate, reference, clientID, invoiceID, description)
 }
 
 func (s *TimesheetService) DeleteExpense(ctx context.Context, expenseID string) error {
@@ -446,6 +446,10 @@ func (s *TimesheetService) DisplayExpense(ctx context.Context, expense *models.E
 
 	if expense.Reference != nil && *expense.Reference != "" {
 		fmt.Printf("Reference: %s\n", *expense.Reference)
+	}
+
+	if expense.Description != nil && *expense.Description != "" {
+		fmt.Printf("Description: %s\n", *expense.Description)
 	}
 
 	if expense.ClientID != nil {

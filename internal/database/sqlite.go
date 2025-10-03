@@ -1135,7 +1135,7 @@ func (s *SQLiteDB) convertDBInvoiceByNumberRowToModel(invoice db.GetInvoiceByNum
 }
 
 // Expense operations
-func (s *SQLiteDB) CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error) {
+func (s *SQLiteDB) CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string, description *string) (*models.Expense, error) {
 	expense, err := s.queries.CreateExpense(ctx, db.CreateExpenseParams{
 		ID:          models.NewUUID(),
 		Amount:      amount,
@@ -1143,6 +1143,7 @@ func (s *SQLiteDB) CreateExpense(ctx context.Context, amount decimal.Decimal, ex
 		Reference:   ptrToNullString(reference),
 		ClientID:    ptrToNullString(clientID),
 		InvoiceID:   ptrToNullString(invoiceID),
+		Description: ptrToNullString(description),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create expense: %w", err)
@@ -1226,7 +1227,7 @@ func (s *SQLiteDB) ListExpensesByClientAndDateRange(ctx context.Context, clientI
 	return result, nil
 }
 
-func (s *SQLiteDB) UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error) {
+func (s *SQLiteDB) UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientID *string, invoiceID *string, description *string) (*models.Expense, error) {
 	// Get current expense to preserve existing values
 	current, err := s.GetExpenseByID(ctx, expenseID)
 	if err != nil {
@@ -1240,6 +1241,7 @@ func (s *SQLiteDB) UpdateExpense(ctx context.Context, expenseID string, amount *
 		Reference:   ptrToNullString(current.Reference),
 		ClientID:    ptrToNullString(current.ClientID),
 		InvoiceID:   ptrToNullString(current.InvoiceID),
+		Description: ptrToNullString(current.Description),
 	}
 
 	if amount != nil {
@@ -1256,6 +1258,9 @@ func (s *SQLiteDB) UpdateExpense(ctx context.Context, expenseID string, amount *
 	}
 	if invoiceID != nil {
 		updateParams.InvoiceID = ptrToNullString(invoiceID)
+	}
+	if description != nil {
+		updateParams.Description = ptrToNullString(description)
 	}
 
 	expense, err := s.queries.UpdateExpense(ctx, updateParams)
@@ -1347,6 +1352,7 @@ func (s *SQLiteDB) convertDBExpenseToModel(expense db.Expense) *models.Expense {
 		Reference:   nullStringToPtr(expense.Reference),
 		ClientID:    nullStringToPtr(expense.ClientID),
 		InvoiceID:   nullStringToPtr(expense.InvoiceID),
+		Description: nullStringToPtr(expense.Description),
 		CreatedAt:   expense.CreatedAt,
 		UpdatedAt:   expense.UpdatedAt,
 	}

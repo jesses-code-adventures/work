@@ -27,18 +27,19 @@ func newExpensesCmd(timesheetService *service.TimesheetService) *cobra.Command {
 
 func newExpensesCreateCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var amount float64
-	var expenseDate, reference, client string
+	var expenseDate, reference, client, description string
 
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new expense",
-		Long:  "Create an expense with a given amount, date, and optional reference and client",
+		Long:  "Create an expense with a given amount, date, and optional reference, description and client",
 		Args:  cobra.NoArgs,
 	}
 
 	cmd.Flags().Float64VarP(&amount, "amount", "a", 0.0, "Amount of the expense (required)")
 	cmd.Flags().StringVarP(&expenseDate, "date", "d", "", "Date of the expense (YYYY-MM-DD, defaults to today)")
-	cmd.Flags().StringVarP(&reference, "reference", "r", "", "Reference or description for the expense")
+	cmd.Flags().StringVarP(&reference, "reference", "r", "", "Reference for the expense")
+	cmd.Flags().StringVarP(&description, "description", "", "", "Description of the expense")
 	cmd.Flags().StringVarP(&client, "client", "c", "", "Client name to associate with the expense")
 
 	cmd.MarkFlagRequired("amount")
@@ -72,13 +73,18 @@ func newExpensesCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 			clientID = &clientModel.ID
 		}
 
-		// Create reference pointer
+		// Create reference and description pointers
 		var refPtr *string
 		if reference != "" {
 			refPtr = &reference
 		}
 
-		expense, err := timesheetService.CreateExpense(ctx, decimal.NewFromFloat(amount), parsedDate, refPtr, clientID, nil)
+		var descPtr *string
+		if description != "" {
+			descPtr = &description
+		}
+
+		expense, err := timesheetService.CreateExpense(ctx, decimal.NewFromFloat(amount), parsedDate, refPtr, clientID, nil, descPtr)
 		if err != nil {
 			return fmt.Errorf("failed to create expense: %w", err)
 		}
@@ -163,6 +169,10 @@ func newExpensesListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 						fmt.Printf(" - %s", *expense.Reference)
 					}
 
+					if expense.Description != nil && *expense.Description != "" {
+						fmt.Printf(" - %s", *expense.Description)
+					}
+
 					if expense.ClientID != nil {
 						client, err := timesheetService.GetClientByID(ctx, *expense.ClientID)
 						if err == nil {
@@ -188,18 +198,19 @@ func newExpensesListCmd(timesheetService *service.TimesheetService) *cobra.Comma
 
 func newExpensesUpdateCmd(timesheetService *service.TimesheetService) *cobra.Command {
 	var amount float64
-	var expenseDate, reference, client string
+	var expenseDate, reference, client, description string
 
 	cmd := &cobra.Command{
 		Use:   "update <expense-id>",
 		Short: "Update an expense",
-		Long:  "Update attributes of an expense, such as amount, date, reference, or client.",
+		Long:  "Update attributes of an expense, such as amount, date, reference, description, or client.",
 		Args:  cobra.ExactArgs(1),
 	}
 
 	cmd.Flags().Float64VarP(&amount, "amount", "a", 0.0, "New amount for the expense")
 	cmd.Flags().StringVarP(&expenseDate, "date", "d", "", "New date for the expense (YYYY-MM-DD)")
 	cmd.Flags().StringVarP(&reference, "reference", "r", "", "New reference for the expense")
+	cmd.Flags().StringVarP(&description, "description", "", "", "New description for the expense")
 	cmd.Flags().StringVarP(&client, "client", "c", "", "New client name for the expense")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -211,6 +222,7 @@ func newExpensesUpdateCmd(timesheetService *service.TimesheetService) *cobra.Com
 		var datePtr *time.Time
 		var refPtr *string
 		var clientPtr *string
+		var descPtr *string
 
 		if amount > 0 {
 			amt := decimal.NewFromFloat(amount)
@@ -229,11 +241,15 @@ func newExpensesUpdateCmd(timesheetService *service.TimesheetService) *cobra.Com
 			refPtr = &reference
 		}
 
+		if cmd.Flags().Changed("description") {
+			descPtr = &description
+		}
+
 		if cmd.Flags().Changed("client") {
 			clientPtr = &client
 		}
 
-		updatedExpense, err := timesheetService.UpdateExpense(ctx, expenseID, amountPtr, datePtr, refPtr, clientPtr, nil)
+		updatedExpense, err := timesheetService.UpdateExpense(ctx, expenseID, amountPtr, datePtr, refPtr, clientPtr, nil, descPtr)
 		if err != nil {
 			return fmt.Errorf("failed to update expense: %w", err)
 		}

@@ -73,6 +73,7 @@ type Expense struct {
 	Reference   *string         `json:"reference,omitempty" db:"reference"`
 	ClientID    *string         `json:"client_id,omitempty" db:"client_id"`
 	InvoiceID   *string         `json:"invoice_id,omitempty" db:"invoice_id"`
+	Description *string         `json:"description,omitempty" db:"description"`
 	CreatedAt   time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at" db:"updated_at"`
 

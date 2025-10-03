@@ -191,7 +191,7 @@ func TestIntegrationWorkCommands(t *testing.T) {
 		}
 
 		// Create a new session
-		_, err = timesheetService.CreateSessionWithTimes(ctx, "test-client", time.Now(), time.Now(), nil)
+		_, err = timesheetService.CreateSessionWithTimes(ctx, "test-client", time.Now(), time.Now(), nil, false)
 		if err != nil {
 			t.Fatalf("Failed to create session: %v", err)
 		}

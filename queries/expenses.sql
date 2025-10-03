@@ -1,6 +1,6 @@
 -- name: CreateExpense :one
-INSERT INTO expenses (id, amount, expense_date, reference, client_id, invoice_id)
-VALUES (sqlc.arg(id), sqlc.arg(amount), sqlc.arg(expense_date), sqlc.narg(reference), sqlc.narg(client_id), sqlc.narg(invoice_id))
+INSERT INTO expenses (id, amount, expense_date, reference, client_id, invoice_id, description)
+VALUES (sqlc.arg(id), sqlc.arg(amount), sqlc.arg(expense_date), sqlc.narg(reference), sqlc.narg(client_id), sqlc.narg(invoice_id), sqlc.narg(description))
 RETURNING *;
 
 -- name: GetExpenseByID :one
@@ -35,7 +35,8 @@ SET
     expense_date = sqlc.narg(expense_date),
     reference = sqlc.narg(reference),
     client_id = sqlc.narg(client_id),
-    invoice_id = sqlc.narg(invoice_id)
+    invoice_id = sqlc.narg(invoice_id),
+    description = sqlc.narg(description)
 WHERE id = sqlc.arg(id)
 RETURNING *;
 

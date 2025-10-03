@@ -25,9 +25,9 @@ func (q *Queries) ClearExpenseInvoiceIDs(ctx context.Context, invoiceID sql.Null
 }
 
 const createExpense = `-- name: CreateExpense :one
-INSERT INTO expenses (id, amount, expense_date, reference, client_id, invoice_id)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-RETURNING id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id
+INSERT INTO expenses (id, amount, expense_date, reference, client_id, invoice_id, description)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+RETURNING id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description
 `
 
 type CreateExpenseParams struct {
@@ -37,6 +37,7 @@ type CreateExpenseParams struct {
 	Reference   sql.NullString  `db:"reference" json:"reference"`
 	ClientID    sql.NullString  `db:"client_id" json:"client_id"`
 	InvoiceID   sql.NullString  `db:"invoice_id" json:"invoice_id"`
+	Description sql.NullString  `db:"description" json:"description"`
 }
 
 func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (Expense, error) {
@@ -47,6 +48,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		arg.Reference,
 		arg.ClientID,
 		arg.InvoiceID,
+		arg.Description,
 	)
 	var i Expense
 	err := row.Scan(
@@ -58,6 +60,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		&i.Reference,
 		&i.ClientID,
 		&i.InvoiceID,
+		&i.Description,
 	)
 	return i, err
 }
@@ -73,7 +76,7 @@ func (q *Queries) DeleteExpense(ctx context.Context, id string) error {
 }
 
 const getExpenseByID = `-- name: GetExpenseByID :one
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE id = ?1
 `
 
@@ -89,12 +92,13 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id string) (Expense, error
 		&i.Reference,
 		&i.ClientID,
 		&i.InvoiceID,
+		&i.Description,
 	)
 	return i, err
 }
 
 const getExpensesByInvoiceID = `-- name: GetExpensesByInvoiceID :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE invoice_id = ?1
 ORDER BY expense_date DESC
 `
@@ -117,6 +121,7 @@ func (q *Queries) GetExpensesByInvoiceID(ctx context.Context, invoiceID sql.Null
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -132,7 +137,7 @@ func (q *Queries) GetExpensesByInvoiceID(ctx context.Context, invoiceID sql.Null
 }
 
 const getExpensesByReference = `-- name: GetExpensesByReference :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE reference = ?1
 ORDER BY expense_date DESC
 `
@@ -155,6 +160,7 @@ func (q *Queries) GetExpensesByReference(ctx context.Context, reference sql.Null
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -170,7 +176,7 @@ func (q *Queries) GetExpensesByReference(ctx context.Context, reference sql.Null
 }
 
 const getExpensesWithoutInvoiceByClient = `-- name: GetExpensesWithoutInvoiceByClient :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE client_id = ?1 AND invoice_id IS NULL
 ORDER BY expense_date DESC
 `
@@ -193,6 +199,7 @@ func (q *Queries) GetExpensesWithoutInvoiceByClient(ctx context.Context, clientI
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -208,7 +215,7 @@ func (q *Queries) GetExpensesWithoutInvoiceByClient(ctx context.Context, clientI
 }
 
 const getExpensesWithoutInvoiceByClientAndDateRange = `-- name: GetExpensesWithoutInvoiceByClientAndDateRange :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE client_id = ?1 
   AND invoice_id IS NULL
   AND expense_date >= ?2 
@@ -240,6 +247,7 @@ func (q *Queries) GetExpensesWithoutInvoiceByClientAndDateRange(ctx context.Cont
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -255,7 +263,7 @@ func (q *Queries) GetExpensesWithoutInvoiceByClientAndDateRange(ctx context.Cont
 }
 
 const listExpenses = `-- name: ListExpenses :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 ORDER BY expense_date DESC
 `
 
@@ -277,6 +285,7 @@ func (q *Queries) ListExpenses(ctx context.Context) ([]Expense, error) {
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -292,7 +301,7 @@ func (q *Queries) ListExpenses(ctx context.Context) ([]Expense, error) {
 }
 
 const listExpensesByClient = `-- name: ListExpensesByClient :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE client_id = ?1
 ORDER BY expense_date DESC
 `
@@ -315,6 +324,7 @@ func (q *Queries) ListExpensesByClient(ctx context.Context, clientID sql.NullStr
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -330,7 +340,7 @@ func (q *Queries) ListExpensesByClient(ctx context.Context, clientID sql.NullStr
 }
 
 const listExpensesByClientAndDateRange = `-- name: ListExpensesByClientAndDateRange :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE client_id = ?1 
   AND expense_date >= ?2 
   AND expense_date <= ?3
@@ -361,6 +371,7 @@ func (q *Queries) ListExpensesByClientAndDateRange(ctx context.Context, arg List
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -376,7 +387,7 @@ func (q *Queries) ListExpensesByClientAndDateRange(ctx context.Context, arg List
 }
 
 const listExpensesByDateRange = `-- name: ListExpensesByDateRange :many
-SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id FROM expenses
+SELECT id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description FROM expenses
 WHERE expense_date >= ?1 AND expense_date <= ?2
 ORDER BY expense_date DESC
 `
@@ -404,6 +415,7 @@ func (q *Queries) ListExpensesByDateRange(ctx context.Context, arg ListExpensesB
 			&i.Reference,
 			&i.ClientID,
 			&i.InvoiceID,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -425,9 +437,10 @@ SET
     expense_date = ?2,
     reference = ?3,
     client_id = ?4,
-    invoice_id = ?5
-WHERE id = ?6
-RETURNING id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id
+    invoice_id = ?5,
+    description = ?6
+WHERE id = ?7
+RETURNING id, amount, created_at, updated_at, expense_date, reference, client_id, invoice_id, description
 `
 
 type UpdateExpenseParams struct {
@@ -436,6 +449,7 @@ type UpdateExpenseParams struct {
 	Reference   sql.NullString  `db:"reference" json:"reference"`
 	ClientID    sql.NullString  `db:"client_id" json:"client_id"`
 	InvoiceID   sql.NullString  `db:"invoice_id" json:"invoice_id"`
+	Description sql.NullString  `db:"description" json:"description"`
 	ID          string          `db:"id" json:"id"`
 }
 
@@ -446,6 +460,7 @@ func (q *Queries) UpdateExpense(ctx context.Context, arg UpdateExpenseParams) (E
 		arg.Reference,
 		arg.ClientID,
 		arg.InvoiceID,
+		arg.Description,
 		arg.ID,
 	)
 	var i Expense
@@ -458,6 +473,7 @@ func (q *Queries) UpdateExpense(ctx context.Context, arg UpdateExpenseParams) (E
 		&i.Reference,
 		&i.ClientID,
 		&i.InvoiceID,
+		&i.Description,
 	)
 	return i, err
 }

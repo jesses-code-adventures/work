@@ -70,7 +70,7 @@ type DB interface {
 	ClearSessionInvoiceIDs(ctx context.Context, invoiceID string) error
 
 	// Expense operations
-	CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error)
+	CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string, description *string) (*models.Expense, error)
 	GetExpenseByID(ctx context.Context, expenseID string) (*models.Expense, error)
 	ListExpenses(ctx context.Context) ([]*models.Expense, error)
 	ListExpensesByClient(ctx context.Context, clientID string) ([]*models.Expense, error)
@@ -79,7 +79,7 @@ type DB interface {
 	GetExpensesByInvoiceID(ctx context.Context, invoiceID string) ([]*models.Expense, error)
 	GetExpensesWithoutInvoiceByClient(ctx context.Context, clientID string) ([]*models.Expense, error)
 	GetExpensesWithoutInvoiceByClientAndDateRange(ctx context.Context, clientID string, startDate, endDate time.Time) ([]*models.Expense, error)
-	UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error)
+	UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientID *string, invoiceID *string, description *string) (*models.Expense, error)
 	UpdateExpenseInvoiceID(ctx context.Context, expenseID string, invoiceID *string) error
 	ClearExpenseInvoiceIDs(ctx context.Context, invoiceID string) error
 	DeleteExpense(ctx context.Context, expenseID string) error

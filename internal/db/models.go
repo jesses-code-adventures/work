@@ -43,6 +43,7 @@ type Expense struct {
 	Reference   sql.NullString  `db:"reference" json:"reference"`
 	ClientID    sql.NullString  `db:"client_id" json:"client_id"`
 	InvoiceID   sql.NullString  `db:"invoice_id" json:"invoice_id"`
+	Description sql.NullString  `db:"description" json:"description"`
 }
 
 type Invoice struct {
