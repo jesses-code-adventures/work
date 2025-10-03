@@ -39,19 +39,66 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		}
 	}
 
+	// Get expenses for the period that haven't been invoiced yet
+	var allExpenses []*models.Expense
+	if clientName != "" {
+		client, err := s.GetClientByName(ctx, clientName)
+		if err != nil {
+			return fmt.Errorf("failed to get client for expenses: %w", err)
+		}
+		allExpenses, err = s.db.GetExpensesWithoutInvoiceByClientAndDateRange(ctx, client.ID, fromDate, toDate)
+		if err != nil {
+			return fmt.Errorf("failed to get uninvoiced expenses for client %s: %w", clientName, err)
+		}
+	} else {
+		// Get all expenses without invoice for the date range
+		allExpenses, err = s.db.ListExpensesByDateRange(ctx, fromDate, toDate)
+		if err != nil {
+			return fmt.Errorf("failed to get uninvoiced expenses: %w", err)
+		}
+		// Filter to only expenses without invoice_id
+		var filteredExpenses []*models.Expense
+		for _, expense := range allExpenses {
+			if expense.InvoiceID == nil {
+				filteredExpenses = append(filteredExpenses, expense)
+			}
+		}
+		allExpenses = filteredExpenses
+	}
+
 	// Group sessions by client and calculate totals
 	clientSessions := s.groupSessionsByClient(sessions)
 
+	// Group expenses by client
+	clientExpenses := s.groupExpensesByClient(allExpenses)
+
 	invoiceCount := 0
-	for clientName, clientSessionList := range clientSessions {
+
+	// Process all clients (from sessions and expenses)
+	allClients := make(map[string]bool)
+	for clientName := range clientSessions {
+		allClients[clientName] = true
+	}
+	for clientName := range clientExpenses {
+		allClients[clientName] = true
+	}
+
+	for clientName := range allClients {
 		// Get client details for billing information first
 		client, err := s.GetClientByName(ctx, clientName)
 		if err != nil {
 			return fmt.Errorf("failed to get client details for %s: %w", clientName, err)
 		}
 
+		clientSessionList := clientSessions[clientName]
+		clientExpenseList := clientExpenses[clientName]
+
 		// Calculate billable amounts with retainer consideration
 		subtotal, retainerAmount := s.calculateClientTotalWithRetainer(clientSessionList, client, period)
+
+		// Add expenses to subtotal
+		expenseTotal := s.calculateExpenseTotal(clientExpenseList)
+		subtotal = subtotal.Add(expenseTotal)
 
 		// Skip if no billable hours and no retainer
 		if subtotal.LessThanOrEqual(decimal.Zero) && retainerAmount.LessThanOrEqual(decimal.Zero) {
@@ -118,6 +165,14 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 					return fmt.Errorf("failed to update session %s with invoice ID: %w", session.ID, err)
 				}
 			}
+
+			// Update expenses with invoice ID only for new invoices
+			for _, expense := range clientExpenseList {
+				err = s.UpdateExpenseInvoiceID(ctx, expense.ID, &invoice.ID)
+				if err != nil {
+					return fmt.Errorf("failed to update expense %s with invoice ID: %w", expense.ID, err)
+				}
+			}
 		}
 
 		// Get sessions for PDF generation (either from current period or from existing invoice)
@@ -137,7 +192,7 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		fileName := fmt.Sprintf("invoice_%s_%s_%s.pdf", clientName, period, date)
 		fileName = s.sanitizeFileName(fileName)
 
-		err = s.generateInvoicePDF(fileName, client, sessionsForPDF, period, fromDate, toDate, retainerAmount)
+		err = s.generateInvoicePDF(fileName, client, sessionsForPDF, clientExpenseList, period, fromDate, toDate, retainerAmount)
 		if err != nil {
 			return fmt.Errorf("failed to generate invoice for %s: %w", clientName, err)
 		}
@@ -229,7 +284,7 @@ func (s *TimesheetService) sanitizeFileName(fileName string) string {
 	return result
 }
 
-func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, period string, fromDate, toDate time.Time, retainerAmount decimal.Decimal) error {
+func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Client, sessions []*models.WorkSession, expenses []*models.Expense, period string, fromDate, toDate time.Time, retainerAmount decimal.Decimal) error {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "B", 16)
@@ -358,8 +413,15 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 		pdf.CellFormat(22, 8, fmt.Sprintf("$%s", sessionSubtotal.StringFixed(2)), "", 1, "R", false, 0, "")
 	}
 
+	// Expenses subtotal
+	expenseSubtotal := s.calculateExpenseTotal(expenses)
+	if expenseSubtotal.GreaterThan(decimal.Zero) {
+		pdf.Cell(168, 8, "Expenses:")
+		pdf.CellFormat(22, 8, fmt.Sprintf("$%s", expenseSubtotal.StringFixed(2)), "", 1, "R", false, 0, "")
+	}
+
 	// Total before GST
-	subtotal := sessionSubtotal.Add(retainerAmount)
+	subtotal := sessionSubtotal.Add(retainerAmount).Add(expenseSubtotal)
 	pdf.Cell(168, 8, "Subtotal:")
 	pdf.CellFormat(22, 8, fmt.Sprintf("$%s", subtotal.StringFixed(2)), "", 1, "R", false, 0, "")
 
@@ -493,6 +555,33 @@ func (s *TimesheetService) generateInvoicePDF(fileName string, client *models.Cl
 		pdf.CellFormat(22, rowHeight, fmt.Sprintf("$%s", amount.StringFixed(2)), "1", 1, "R", false, 0, "")
 	}
 
+	// Add expenses table if there are any expenses
+	if len(expenses) > 0 {
+		pdf.Ln(12)
+		pdf.SetFont("Arial", "B", 14)
+		pdf.Cell(40, 10, "Expenses")
+		pdf.Ln(12)
+
+		// Expense table headers
+		pdf.SetFont("Arial", "B", 9)
+		pdf.CellFormat(40, 8, "Date", "1", 0, "C", false, 0, "")
+		pdf.CellFormat(25, 8, "Amount", "1", 0, "C", false, 0, "")
+		pdf.CellFormat(125, 8, "Reference", "1", 1, "C", false, 0, "")
+
+		// Expense table rows
+		pdf.SetFont("Arial", "", 9)
+		for _, expense := range expenses {
+			pdf.CellFormat(40, 6, expense.ExpenseDate.Format("2006-01-02"), "1", 0, "C", false, 0, "")
+			pdf.CellFormat(25, 6, fmt.Sprintf("$%s", expense.Amount.StringFixed(2)), "1", 0, "R", false, 0, "")
+
+			reference := ""
+			if expense.Reference != nil {
+				reference = *expense.Reference
+			}
+			pdf.CellFormat(125, 6, reference, "1", 1, "L", false, 0, "")
+		}
+	}
+
 	// Add note about retainer if applicable
 	if retainerAmount.GreaterThan(decimal.Zero) && client.RetainerHours != nil {
 		pdf.Ln(6)
@@ -511,6 +600,28 @@ func (s *TimesheetService) groupSessionsByClient(sessions []*models.WorkSession)
 		}
 	}
 	return clientSessions
+}
+
+func (s *TimesheetService) groupExpensesByClient(expenses []*models.Expense) map[string][]*models.Expense {
+	clientExpenses := make(map[string][]*models.Expense)
+	for _, expense := range expenses {
+		if expense.ClientID != nil {
+			// Get client name for grouping
+			client, err := s.db.GetClientByID(context.Background(), *expense.ClientID)
+			if err == nil {
+				clientExpenses[client.Name] = append(clientExpenses[client.Name], expense)
+			}
+		}
+	}
+	return clientExpenses
+}
+
+func (s *TimesheetService) calculateExpenseTotal(expenses []*models.Expense) decimal.Decimal {
+	total := decimal.Zero
+	for _, expense := range expenses {
+		total = total.Add(expense.Amount)
+	}
+	return total
 }
 
 func (s *TimesheetService) calculateClientTotal(sessions []*models.WorkSession) decimal.Decimal {

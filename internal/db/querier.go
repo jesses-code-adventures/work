@@ -10,17 +10,25 @@ import (
 )
 
 type Querier interface {
+	ClearExpenseInvoiceIDs(ctx context.Context, invoiceID sql.NullString) error
 	ClearSessionInvoiceIDs(ctx context.Context, invoiceID sql.NullString) error
 	CreateClient(ctx context.Context, arg CreateClientParams) (Client, error)
+	CreateExpense(ctx context.Context, arg CreateExpenseParams) (Expense, error)
 	CreateInvoice(ctx context.Context, arg CreateInvoiceParams) (Invoice, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	DeleteAllSessions(ctx context.Context) error
+	DeleteExpense(ctx context.Context, id string) error
 	DeleteInvoice(ctx context.Context, id string) error
 	DeleteSessionsByDateRange(ctx context.Context, arg DeleteSessionsByDateRangeParams) error
 	GetActiveSession(ctx context.Context) (GetActiveSessionRow, error)
 	GetClientByID(ctx context.Context, id string) (Client, error)
 	GetClientByName(ctx context.Context, name string) (Client, error)
 	GetClientsWithDirectories(ctx context.Context) ([]Client, error)
+	GetExpenseByID(ctx context.Context, id string) (Expense, error)
+	GetExpensesByInvoiceID(ctx context.Context, invoiceID sql.NullString) ([]Expense, error)
+	GetExpensesByReference(ctx context.Context, reference sql.NullString) ([]Expense, error)
+	GetExpensesWithoutInvoiceByClient(ctx context.Context, clientID sql.NullString) ([]Expense, error)
+	GetExpensesWithoutInvoiceByClientAndDateRange(ctx context.Context, arg GetExpensesWithoutInvoiceByClientAndDateRangeParams) ([]Expense, error)
 	GetInvoiceByID(ctx context.Context, id string) (GetInvoiceByIDRow, error)
 	GetInvoiceByNumber(ctx context.Context, invoiceNumber string) (GetInvoiceByNumberRow, error)
 	GetInvoicesByClient(ctx context.Context, clientName string) ([]GetInvoicesByClientRow, error)
@@ -34,12 +42,18 @@ type Querier interface {
 	GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Context, arg GetSessionsForPeriodWithoutInvoiceByClientParams) ([]GetSessionsForPeriodWithoutInvoiceByClientRow, error)
 	GetSessionsWithoutDescription(ctx context.Context, arg GetSessionsWithoutDescriptionParams) ([]GetSessionsWithoutDescriptionRow, error)
 	ListClients(ctx context.Context) ([]Client, error)
+	ListExpenses(ctx context.Context) ([]Expense, error)
+	ListExpensesByClient(ctx context.Context, clientID sql.NullString) ([]Expense, error)
+	ListExpensesByClientAndDateRange(ctx context.Context, arg ListExpensesByClientAndDateRangeParams) ([]Expense, error)
+	ListExpensesByDateRange(ctx context.Context, arg ListExpensesByDateRangeParams) ([]Expense, error)
 	ListInvoices(ctx context.Context, limitCount int64) ([]ListInvoicesRow, error)
 	ListRecentSessions(ctx context.Context, limitCount int64) ([]ListRecentSessionsRow, error)
 	ListSessionsWithDateRange(ctx context.Context, arg ListSessionsWithDateRangeParams) ([]ListSessionsWithDateRangeRow, error)
 	PayInvoice(ctx context.Context, arg PayInvoiceParams) error
 	StopSession(ctx context.Context, arg StopSessionParams) (Session, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) (Client, error)
+	UpdateExpense(ctx context.Context, arg UpdateExpenseParams) (Expense, error)
+	UpdateExpenseInvoiceID(ctx context.Context, arg UpdateExpenseInvoiceIDParams) error
 	UpdateSessionDescription(ctx context.Context, arg UpdateSessionDescriptionParams) (Session, error)
 	UpdateSessionInvoiceID(ctx context.Context, arg UpdateSessionInvoiceIDParams) error
 	UpdateSessionOutsideGit(ctx context.Context, arg UpdateSessionOutsideGitParams) (Session, error)

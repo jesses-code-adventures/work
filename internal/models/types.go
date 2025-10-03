@@ -65,6 +65,19 @@ type Invoice struct {
 	ClientName string `json:"client_name,omitempty" db:"client_name"`
 }
 
+type Expense struct {
+	ID          string          `json:"id" db:"id"`
+	Amount      decimal.Decimal `json:"amount" db:"amount"`
+	ExpenseDate time.Time       `json:"expense_date" db:"expense_date"`
+	Reference   *string         `json:"reference,omitempty" db:"reference"`
+	ClientID    *string         `json:"client_id,omitempty" db:"client_id"`
+	InvoiceID   *string         `json:"invoice_id,omitempty" db:"invoice_id"`
+	CreatedAt   time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at" db:"updated_at"`
+
+	ClientName *string `json:"client_name,omitempty" db:"client_name"`
+}
+
 func NewUUID() string {
 	return uuid.Must(uuid.NewV7()).String()
 }

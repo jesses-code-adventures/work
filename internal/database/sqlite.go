@@ -1125,3 +1125,221 @@ func (s *SQLiteDB) convertDBInvoiceByNumberRowToModel(invoice db.GetInvoiceByNum
 		ClientName:      invoice.ClientName,
 	}
 }
+
+// Expense operations
+func (s *SQLiteDB) CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error) {
+	expense, err := s.queries.CreateExpense(ctx, db.CreateExpenseParams{
+		ID:          models.NewUUID(),
+		Amount:      amount,
+		ExpenseDate: expenseDate,
+		Reference:   ptrToNullString(reference),
+		ClientID:    ptrToNullString(clientID),
+		InvoiceID:   ptrToNullString(invoiceID),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create expense: %w", err)
+	}
+
+	return s.convertDBExpenseToModel(expense), nil
+}
+
+func (s *SQLiteDB) GetExpenseByID(ctx context.Context, expenseID string) (*models.Expense, error) {
+	expense, err := s.queries.GetExpenseByID(ctx, expenseID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, sql.ErrNoRows
+		}
+		return nil, fmt.Errorf("failed to get expense by ID: %w", err)
+	}
+
+	return s.convertDBExpenseToModel(expense), nil
+}
+
+func (s *SQLiteDB) ListExpenses(ctx context.Context) ([]*models.Expense, error) {
+	expenses, err := s.queries.ListExpenses(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list expenses: %w", err)
+	}
+
+	result := make([]*models.Expense, len(expenses))
+	for i, expense := range expenses {
+		result[i] = s.convertDBExpenseToModel(expense)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) ListExpensesByClient(ctx context.Context, clientID string) ([]*models.Expense, error) {
+	expenses, err := s.queries.ListExpensesByClient(ctx, sql.NullString{String: clientID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list expenses by client: %w", err)
+	}
+
+	result := make([]*models.Expense, len(expenses))
+	for i, expense := range expenses {
+		result[i] = s.convertDBExpenseToModel(expense)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) ListExpensesByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*models.Expense, error) {
+	expenses, err := s.queries.ListExpensesByDateRange(ctx, db.ListExpensesByDateRangeParams{
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list expenses by date range: %w", err)
+	}
+
+	result := make([]*models.Expense, len(expenses))
+	for i, expense := range expenses {
+		result[i] = s.convertDBExpenseToModel(expense)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) ListExpensesByClientAndDateRange(ctx context.Context, clientID string, startDate, endDate time.Time) ([]*models.Expense, error) {
+	expenses, err := s.queries.ListExpensesByClientAndDateRange(ctx, db.ListExpensesByClientAndDateRangeParams{
+		ClientID:  sql.NullString{String: clientID, Valid: true},
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list expenses by client and date range: %w", err)
+	}
+
+	result := make([]*models.Expense, len(expenses))
+	for i, expense := range expenses {
+		result[i] = s.convertDBExpenseToModel(expense)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error) {
+	// Get current expense to preserve existing values
+	current, err := s.GetExpenseByID(ctx, expenseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current expense: %w", err)
+	}
+
+	updateParams := db.UpdateExpenseParams{
+		ID:          expenseID,
+		Amount:      current.Amount,
+		ExpenseDate: sql.NullTime{Time: current.ExpenseDate, Valid: true},
+		Reference:   ptrToNullString(current.Reference),
+		ClientID:    ptrToNullString(current.ClientID),
+		InvoiceID:   ptrToNullString(current.InvoiceID),
+	}
+
+	if amount != nil {
+		updateParams.Amount = *amount
+	}
+	if expenseDate != nil {
+		updateParams.ExpenseDate = sql.NullTime{Time: *expenseDate, Valid: true}
+	}
+	if reference != nil {
+		updateParams.Reference = ptrToNullString(reference)
+	}
+	if clientID != nil {
+		updateParams.ClientID = ptrToNullString(clientID)
+	}
+	if invoiceID != nil {
+		updateParams.InvoiceID = ptrToNullString(invoiceID)
+	}
+
+	expense, err := s.queries.UpdateExpense(ctx, updateParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update expense: %w", err)
+	}
+
+	return s.convertDBExpenseToModel(expense), nil
+}
+
+func (s *SQLiteDB) DeleteExpense(ctx context.Context, expenseID string) error {
+	err := s.queries.DeleteExpense(ctx, expenseID)
+	if err != nil {
+		return fmt.Errorf("failed to delete expense: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteDB) GetExpensesByInvoiceID(ctx context.Context, invoiceID string) ([]*models.Expense, error) {
+	expenses, err := s.queries.GetExpensesByInvoiceID(ctx, sql.NullString{String: invoiceID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expenses by invoice ID: %w", err)
+	}
+
+	result := make([]*models.Expense, len(expenses))
+	for i, expense := range expenses {
+		result[i] = s.convertDBExpenseToModel(expense)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) GetExpensesWithoutInvoiceByClient(ctx context.Context, clientID string) ([]*models.Expense, error) {
+	expenses, err := s.queries.GetExpensesWithoutInvoiceByClient(ctx, sql.NullString{String: clientID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expenses without invoice by client: %w", err)
+	}
+
+	result := make([]*models.Expense, len(expenses))
+	for i, expense := range expenses {
+		result[i] = s.convertDBExpenseToModel(expense)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) GetExpensesWithoutInvoiceByClientAndDateRange(ctx context.Context, clientID string, startDate, endDate time.Time) ([]*models.Expense, error) {
+	expenses, err := s.queries.GetExpensesWithoutInvoiceByClientAndDateRange(ctx, db.GetExpensesWithoutInvoiceByClientAndDateRangeParams{
+		ClientID:  sql.NullString{String: clientID, Valid: true},
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expenses without invoice by client and date range: %w", err)
+	}
+
+	result := make([]*models.Expense, len(expenses))
+	for i, expense := range expenses {
+		result[i] = s.convertDBExpenseToModel(expense)
+	}
+
+	return result, nil
+}
+
+func (s *SQLiteDB) UpdateExpenseInvoiceID(ctx context.Context, expenseID string, invoiceID *string) error {
+	err := s.queries.UpdateExpenseInvoiceID(ctx, db.UpdateExpenseInvoiceIDParams{
+		ID:        expenseID,
+		InvoiceID: ptrToNullString(invoiceID),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update expense invoice ID: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteDB) ClearExpenseInvoiceIDs(ctx context.Context, invoiceID string) error {
+	err := s.queries.ClearExpenseInvoiceIDs(ctx, sql.NullString{String: invoiceID, Valid: true})
+	if err != nil {
+		return fmt.Errorf("failed to clear expense invoice IDs: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteDB) convertDBExpenseToModel(expense db.Expense) *models.Expense {
+	return &models.Expense{
+		ID:          expense.ID,
+		Amount:      expense.Amount,
+		ExpenseDate: expense.ExpenseDate,
+		Reference:   nullStringToPtr(expense.Reference),
+		ClientID:    nullStringToPtr(expense.ClientID),
+		InvoiceID:   nullStringToPtr(expense.InvoiceID),
+		CreatedAt:   expense.CreatedAt,
+		UpdatedAt:   expense.UpdatedAt,
+	}
+}

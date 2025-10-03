@@ -34,6 +34,17 @@ type Client struct {
 	RetainerBasis  sql.NullString      `db:"retainer_basis" json:"retainer_basis"`
 }
 
+type Expense struct {
+	ID          string          `db:"id" json:"id"`
+	Amount      decimal.Decimal `db:"amount" json:"amount"`
+	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
+	ExpenseDate time.Time       `db:"expense_date" json:"expense_date"`
+	Reference   sql.NullString  `db:"reference" json:"reference"`
+	ClientID    sql.NullString  `db:"client_id" json:"client_id"`
+	InvoiceID   sql.NullString  `db:"invoice_id" json:"invoice_id"`
+}
+
 type Invoice struct {
 	ID              string          `db:"id" json:"id"`
 	ClientID        string          `db:"client_id" json:"client_id"`

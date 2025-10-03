@@ -343,3 +343,103 @@ func (s *TimesheetService) AddSessionNote(ctx context.Context, sessionID string,
 
 	return s.db.UpdateSessionOutsideGit(ctx, sessionID, updatedNotes)
 }
+
+// Expense operations
+func (s *TimesheetService) CreateExpense(ctx context.Context, amount decimal.Decimal, expenseDate time.Time, reference *string, clientID *string, invoiceID *string) (*models.Expense, error) {
+	return s.db.CreateExpense(ctx, amount, expenseDate, reference, clientID, invoiceID)
+}
+
+func (s *TimesheetService) GetExpenseByID(ctx context.Context, expenseID string) (*models.Expense, error) {
+	return s.db.GetExpenseByID(ctx, expenseID)
+}
+
+func (s *TimesheetService) ListExpenses(ctx context.Context) ([]*models.Expense, error) {
+	return s.db.ListExpenses(ctx)
+}
+
+func (s *TimesheetService) ListExpensesByClient(ctx context.Context, clientName string) ([]*models.Expense, error) {
+	client, err := s.db.GetClientByName(ctx, clientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+	return s.db.ListExpensesByClient(ctx, client.ID)
+}
+
+func (s *TimesheetService) ListExpensesByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*models.Expense, error) {
+	return s.db.ListExpensesByDateRange(ctx, startDate, endDate)
+}
+
+func (s *TimesheetService) ListExpensesByClientAndDateRange(ctx context.Context, clientName string, startDate, endDate time.Time) ([]*models.Expense, error) {
+	client, err := s.db.GetClientByName(ctx, clientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+	return s.db.ListExpensesByClientAndDateRange(ctx, client.ID, startDate, endDate)
+}
+
+func (s *TimesheetService) UpdateExpense(ctx context.Context, expenseID string, amount *decimal.Decimal, expenseDate *time.Time, reference *string, clientName *string, invoiceID *string) (*models.Expense, error) {
+	var clientID *string
+	if clientName != nil && *clientName != "" {
+		client, err := s.db.GetClientByName(ctx, *clientName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get client: %w", err)
+		}
+		clientID = &client.ID
+	}
+	return s.db.UpdateExpense(ctx, expenseID, amount, expenseDate, reference, clientID, invoiceID)
+}
+
+func (s *TimesheetService) DeleteExpense(ctx context.Context, expenseID string) error {
+	return s.db.DeleteExpense(ctx, expenseID)
+}
+
+func (s *TimesheetService) GetExpensesByInvoiceID(ctx context.Context, invoiceID string) ([]*models.Expense, error) {
+	return s.db.GetExpensesByInvoiceID(ctx, invoiceID)
+}
+
+func (s *TimesheetService) GetExpensesWithoutInvoiceByClient(ctx context.Context, clientName string) ([]*models.Expense, error) {
+	client, err := s.db.GetClientByName(ctx, clientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+	return s.db.GetExpensesWithoutInvoiceByClient(ctx, client.ID)
+}
+
+func (s *TimesheetService) GetExpensesWithoutInvoiceByClientAndDateRange(ctx context.Context, clientName string, startDate, endDate time.Time) ([]*models.Expense, error) {
+	client, err := s.db.GetClientByName(ctx, clientName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+	return s.db.GetExpensesWithoutInvoiceByClientAndDateRange(ctx, client.ID, startDate, endDate)
+}
+
+func (s *TimesheetService) UpdateExpenseInvoiceID(ctx context.Context, expenseID string, invoiceID *string) error {
+	return s.db.UpdateExpenseInvoiceID(ctx, expenseID, invoiceID)
+}
+
+func (s *TimesheetService) ClearExpenseInvoiceIDs(ctx context.Context, invoiceID string) error {
+	return s.db.ClearExpenseInvoiceIDs(ctx, invoiceID)
+}
+
+func (s *TimesheetService) DisplayExpense(ctx context.Context, expense *models.Expense) {
+	fmt.Printf("Expense: %s\n", expense.ID)
+	fmt.Printf("Amount: %s\n", fmt.Sprintf("$%s", expense.Amount.StringFixed(2)))
+	fmt.Printf("Date: %s\n", expense.ExpenseDate.Format("2006-01-02"))
+
+	if expense.Reference != nil && *expense.Reference != "" {
+		fmt.Printf("Reference: %s\n", *expense.Reference)
+	}
+
+	if expense.ClientID != nil {
+		client, err := s.db.GetClientByID(ctx, *expense.ClientID)
+		if err == nil {
+			fmt.Printf("Client: %s\n", client.Name)
+		}
+	}
+
+	if expense.InvoiceID != nil {
+		fmt.Printf("Invoice: %s\n", *expense.InvoiceID)
+	}
+
+	fmt.Printf("Created: %s\n", expense.CreatedAt.Format("2006-01-02 15:04:05"))
+}
