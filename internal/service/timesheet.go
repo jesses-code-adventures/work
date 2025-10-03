@@ -51,7 +51,7 @@ func (s *TimesheetService) StartWork(ctx context.Context, clientName string, des
 		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	session, err := s.db.CreateWorkSession(ctx, client.ID, description, client.HourlyRate)
+	session, err := s.db.CreateWorkSession(ctx, client.ID, description, client.HourlyRate, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create work session: %w", err)
 	}
@@ -85,7 +85,7 @@ func (s *TimesheetService) StartWorkWithTime(ctx context.Context, clientName str
 		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	session, err := s.db.CreateWorkSessionWithStartTime(ctx, client.ID, startTime, description, client.HourlyRate)
+	session, err := s.db.CreateWorkSessionWithStartTime(ctx, client.ID, startTime, description, client.HourlyRate, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create work session: %w", err)
 	}
@@ -94,7 +94,7 @@ func (s *TimesheetService) StartWorkWithTime(ctx context.Context, clientName str
 	return session, nil
 }
 
-func (s *TimesheetService) CreateSessionWithTimes(ctx context.Context, clientName string, startTime, endTime time.Time, description *string) (*models.WorkSession, error) {
+func (s *TimesheetService) CreateSessionWithTimes(ctx context.Context, clientName string, startTime, endTime time.Time, description *string, includesGst bool) (*models.WorkSession, error) {
 	client, err := s.db.GetClientByName(ctx, clientName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -108,7 +108,7 @@ func (s *TimesheetService) CreateSessionWithTimes(ctx context.Context, clientNam
 		hourlyRate = client.HourlyRate
 	}
 
-	session, err := s.db.CreateWorkSessionWithTimes(ctx, client.ID, startTime, endTime, description, hourlyRate)
+	session, err := s.db.CreateWorkSessionWithTimes(ctx, client.ID, startTime, endTime, description, hourlyRate, includesGst)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create work session: %w", err)
 	}
@@ -279,6 +279,24 @@ func (s *TimesheetService) FormatBillableAmount(amount decimal.Decimal) string {
 		return "$0.00"
 	}
 	return s.FormatBillableAmountWithGST(amount)
+}
+
+func (s *TimesheetService) FormatSessionBillableAmount(session *models.WorkSession) string {
+	amount := s.CalculateBillableAmount(session)
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return "$0.00"
+	}
+
+	if session.IncludesGst {
+		// Session amount already includes GST
+		if s.cfg.GSTRegistered {
+			return fmt.Sprintf("$%s (inc. GST)", amount.StringFixed(2))
+		}
+		return fmt.Sprintf("$%s", amount.StringFixed(2))
+	} else {
+		// Session amount excludes GST, show both amounts
+		return s.FormatBillableAmountWithGST(amount)
+	}
 }
 
 func (s *TimesheetService) FormatBillableAmountWithGST(amount decimal.Decimal) string {

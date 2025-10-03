@@ -34,6 +34,7 @@ func newSessionsCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 	var fromTime string
 	var toTime string
 	var description string
+	var includesGst bool
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -45,6 +46,7 @@ func newSessionsCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 	cmd.Flags().StringVarP(&fromTime, "from", "f", "", "Start time (required, format: 'YYYY-MM-DD HH:MM' or 'HH:MM')")
 	cmd.Flags().StringVarP(&toTime, "to", "t", "", "End time (required, format: 'YYYY-MM-DD HH:MM' or 'HH:MM')")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Session description (optional)")
+	cmd.Flags().BoolVar(&includesGst, "includes-gst", false, "Session amount includes GST (default: false)")
 
 	cmd.MarkFlagRequired("client")
 	cmd.MarkFlagRequired("from")
@@ -72,7 +74,7 @@ func newSessionsCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 			desc = &description
 		}
 
-		session, err := timesheetService.CreateSessionWithTimes(ctx, client, startTime, endTime, desc)
+		session, err := timesheetService.CreateSessionWithTimes(ctx, client, startTime, endTime, desc, includesGst)
 		if err != nil {
 			return fmt.Errorf("failed to create session: %w", err)
 		}
@@ -89,7 +91,7 @@ func newSessionsCreateCmd(timesheetService *service.TimesheetService) *cobra.Com
 			fmt.Printf("  Description: %s\n", description)
 		}
 		if billableAmount.GreaterThan(decimal.Zero) {
-			fmt.Printf("  Billable: %s\n", timesheetService.FormatBillableAmount(billableAmount))
+			fmt.Printf("  Billable: %s\n", timesheetService.FormatSessionBillableAmount(session))
 		}
 		return nil
 	}

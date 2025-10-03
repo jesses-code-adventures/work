@@ -1,6 +1,6 @@
 -- name: CreateSession :one
-INSERT INTO sessions (id, client_id, start_time, description, hourly_rate)
-VALUES (sqlc.arg(id), sqlc.arg(client_id), sqlc.arg(start_time), sqlc.narg(description), sqlc.narg(hourly_rate))
+INSERT INTO sessions (id, client_id, start_time, description, hourly_rate, includes_gst)
+VALUES (sqlc.arg(id), sqlc.arg(client_id), sqlc.arg(start_time), sqlc.narg(description), sqlc.narg(hourly_rate), sqlc.arg(includes_gst))
 RETURNING *;
 
 -- name: GetActiveSession :one

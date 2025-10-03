@@ -140,7 +140,7 @@ func (s *SQLiteDB) GetClientsWithDirectories(ctx context.Context) ([]*models.Cli
 	return result, nil
 }
 
-func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error) {
+func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate decimal.Decimal, includesGst bool) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
 		desc = sql.NullString{String: *description, Valid: true}
@@ -157,6 +157,7 @@ func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, descr
 		StartTime:   time.Now(),
 		Description: desc,
 		HourlyRate:  rate,
+		IncludesGst: includesGst,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create work session: %w", err)
@@ -170,12 +171,13 @@ func (s *SQLiteDB) CreateWorkSession(ctx context.Context, clientID string, descr
 		Description: nullStringToPtr(session.Description),
 		HourlyRate:  nullDecimalToPtr(session.HourlyRate),
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
+		IncludesGst: session.IncludesGst,
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
 }
 
-func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error) {
+func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate decimal.Decimal, includesGst bool) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
 		desc = sql.NullString{String: *description, Valid: true}
@@ -192,6 +194,7 @@ func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID 
 		StartTime:   startTime,
 		Description: desc,
 		HourlyRate:  rate,
+		IncludesGst: includesGst,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create work session: %w", err)
@@ -205,12 +208,13 @@ func (s *SQLiteDB) CreateWorkSessionWithStartTime(ctx context.Context, clientID 
 		Description: nullStringToPtr(session.Description),
 		HourlyRate:  nullDecimalToPtr(session.HourlyRate),
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
+		IncludesGst: session.IncludesGst,
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
 }
 
-func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error) {
+func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate decimal.Decimal, includesGst bool) (*models.WorkSession, error) {
 	var desc sql.NullString
 	if description != nil {
 		desc = sql.NullString{String: *description, Valid: true}
@@ -227,6 +231,7 @@ func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID stri
 		StartTime:   startTime,
 		Description: desc,
 		HourlyRate:  rate,
+		IncludesGst: includesGst,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create work session: %w", err)
@@ -249,6 +254,7 @@ func (s *SQLiteDB) CreateWorkSessionWithTimes(ctx context.Context, clientID stri
 		Description: nullStringToPtr(updatedSession.Description),
 		HourlyRate:  nullDecimalToPtr(updatedSession.HourlyRate),
 		OutsideGit:  nullStringToPtr(updatedSession.OutsideGit),
+		IncludesGst: updatedSession.IncludesGst,
 		CreatedAt:   updatedSession.CreatedAt,
 		UpdatedAt:   updatedSession.UpdatedAt,
 	}, nil
@@ -276,6 +282,7 @@ func (s *SQLiteDB) GetActiveSession(ctx context.Context) (*models.WorkSession, e
 		Description: nullStringToPtr(session.Description),
 		HourlyRate:  &sessionRate,
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
+		IncludesGst: session.IncludesGst,
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 		ClientName:  session.ClientName,
@@ -291,19 +298,15 @@ func (s *SQLiteDB) StopWorkSession(ctx context.Context, sessionID string) (*mode
 		return nil, fmt.Errorf("failed to stop work session: %w", err)
 	}
 
-	sessionRate := decimal.Zero
-	if session.HourlyRate.Valid {
-		sessionRate = session.HourlyRate.Decimal
-	}
-
 	return &models.WorkSession{
 		ID:          session.ID,
 		ClientID:    session.ClientID,
 		StartTime:   session.StartTime,
 		EndTime:     nullTimeToPtr(session.EndTime),
 		Description: nullStringToPtr(session.Description),
-		HourlyRate:  &sessionRate,
+		HourlyRate:  nullDecimalToPtr(session.HourlyRate),
 		OutsideGit:  nullStringToPtr(session.OutsideGit),
+		IncludesGst: session.IncludesGst,
 		CreatedAt:   session.CreatedAt,
 		UpdatedAt:   session.UpdatedAt,
 	}, nil
@@ -331,6 +334,7 @@ func (s *SQLiteDB) ListRecentSessions(ctx context.Context, limit int32) ([]*mode
 			HourlyRate:      &sessionRate,
 			FullWorkSummary: nullStringToPtr(session.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(session.OutsideGit),
+			IncludesGst:     session.IncludesGst,
 			CreatedAt:       session.CreatedAt,
 			UpdatedAt:       session.UpdatedAt,
 			ClientName:      session.ClientName,
@@ -423,7 +427,7 @@ func (s *SQLiteDB) ListSessionsByClient(ctx context.Context, clientName string, 
 func (s *SQLiteDB) UpdateClient(ctx context.Context, clientID string, updates *ClientUpdateDetails) (*models.Client, error) {
 	client, err := s.queries.UpdateClient(ctx, db.UpdateClientParams{
 		ID:             clientID,
-		HourlyRate:     decimal.NullDecimal{Decimal: *updates.HourlyRate, Valid: true},
+		HourlyRate:     ptrToNullDecimal(updates.HourlyRate),
 		CompanyName:    ptrToNullString(updates.CompanyName),
 		ContactName:    ptrToNullString(updates.ContactName),
 		Email:          ptrToNullString(updates.Email),
@@ -568,6 +572,7 @@ func (s *SQLiteDB) convertDBSessionToModel(session interface{}) *models.WorkSess
 			HourlyRate:      &rate,
 			FullWorkSummary: nullStringToPtr(dbSession.FullWorkSummary),
 			OutsideGit:      nullStringToPtr(dbSession.OutsideGit),
+			IncludesGst:     dbSession.IncludesGst,
 			CreatedAt:       dbSession.CreatedAt,
 			UpdatedAt:       dbSession.UpdatedAt,
 		}

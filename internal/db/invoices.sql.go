@@ -397,7 +397,7 @@ func (q *Queries) GetInvoicesByPeriodAndClient(ctx context.Context, arg GetInvoi
 }
 
 const getSessionsByInvoiceID = `-- name: GetSessionsByInvoiceID :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, s.includes_gst, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE s.invoice_id = ?1
@@ -416,6 +416,7 @@ type GetSessionsByInvoiceIDRow struct {
 	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
 	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	IncludesGst     bool                `db:"includes_gst" json:"includes_gst"`
 	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
@@ -440,6 +441,7 @@ func (q *Queries) GetSessionsByInvoiceID(ctx context.Context, invoiceID sql.Null
 			&i.FullWorkSummary,
 			&i.OutsideGit,
 			&i.InvoiceID,
+			&i.IncludesGst,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -456,7 +458,7 @@ func (q *Queries) GetSessionsByInvoiceID(ctx context.Context, invoiceID sql.Null
 }
 
 const getSessionsForPeriodWithoutInvoice = `-- name: GetSessionsForPeriodWithoutInvoice :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, s.includes_gst, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE s.start_time >= ?1 
@@ -483,6 +485,7 @@ type GetSessionsForPeriodWithoutInvoiceRow struct {
 	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
 	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	IncludesGst     bool                `db:"includes_gst" json:"includes_gst"`
 	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
@@ -507,6 +510,7 @@ func (q *Queries) GetSessionsForPeriodWithoutInvoice(ctx context.Context, arg Ge
 			&i.FullWorkSummary,
 			&i.OutsideGit,
 			&i.InvoiceID,
+			&i.IncludesGst,
 			&i.ClientName,
 		); err != nil {
 			return nil, err
@@ -523,7 +527,7 @@ func (q *Queries) GetSessionsForPeriodWithoutInvoice(ctx context.Context, arg Ge
 }
 
 const getSessionsForPeriodWithoutInvoiceByClient = `-- name: GetSessionsForPeriodWithoutInvoiceByClient :many
-SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, c.name as client_name
+SELECT s.id, s.client_id, s.start_time, s.end_time, s.description, s.created_at, s.updated_at, s.hourly_rate, s.full_work_summary, s.outside_git, s.invoice_id, s.includes_gst, c.name as client_name
 FROM sessions s
 JOIN clients c ON s.client_id = c.id
 WHERE s.start_time >= ?1 
@@ -552,6 +556,7 @@ type GetSessionsForPeriodWithoutInvoiceByClientRow struct {
 	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
 	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	IncludesGst     bool                `db:"includes_gst" json:"includes_gst"`
 	ClientName      string              `db:"client_name" json:"client_name"`
 }
 
@@ -576,6 +581,7 @@ func (q *Queries) GetSessionsForPeriodWithoutInvoiceByClient(ctx context.Context
 			&i.FullWorkSummary,
 			&i.OutsideGit,
 			&i.InvoiceID,
+			&i.IncludesGst,
 			&i.ClientName,
 		); err != nil {
 			return nil, err

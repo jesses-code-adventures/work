@@ -185,6 +185,15 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 
 		var hourlyRateDecimal *decimal.Decimal
 		var retainerAmountDecimal *decimal.Decimal
+		var retainerHoursPtr *float64
+
+		// Helper function to convert empty strings to nil pointers
+		stringPtr := func(s string) *string {
+			if s == "" {
+				return nil
+			}
+			return &s
+		}
 
 		if hourlyRate > 0 {
 			rate := decimal.NewFromFloat(hourlyRate)
@@ -194,24 +203,27 @@ func newClientsUpdateCmd(timesheetService *service.TimesheetService) *cobra.Comm
 			amount := decimal.NewFromFloat(retainerAmount)
 			retainerAmountDecimal = &amount
 		}
+		if retainerHours > 0 {
+			retainerHoursPtr = &retainerHours
+		}
 
 		updatedClient, err := timesheetService.UpdateClient(ctx, client, &database.ClientUpdateDetails{
 			HourlyRate:     hourlyRateDecimal,
-			CompanyName:    &companyName,
-			ContactName:    &contactName,
-			Email:          &email,
-			Phone:          &phone,
-			AddressLine1:   &addressLine1,
-			AddressLine2:   &addressLine2,
-			City:           &city,
-			State:          &state,
-			PostalCode:     &postalCode,
-			Country:        &country,
-			Abn:            &abn,
-			Dir:            &dir,
+			CompanyName:    stringPtr(companyName),
+			ContactName:    stringPtr(contactName),
+			Email:          stringPtr(email),
+			Phone:          stringPtr(phone),
+			AddressLine1:   stringPtr(addressLine1),
+			AddressLine2:   stringPtr(addressLine2),
+			City:           stringPtr(city),
+			State:          stringPtr(state),
+			PostalCode:     stringPtr(postalCode),
+			Country:        stringPtr(country),
+			Abn:            stringPtr(abn),
+			Dir:            stringPtr(dir),
 			RetainerAmount: retainerAmountDecimal,
-			RetainerHours:  &retainerHours,
-			RetainerBasis:  &retainerBasis,
+			RetainerHours:  retainerHoursPtr,
+			RetainerBasis:  stringPtr(retainerBasis),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update client billing: %w", err)

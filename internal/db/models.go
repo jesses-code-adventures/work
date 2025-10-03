@@ -105,6 +105,7 @@ type Session struct {
 	FullWorkSummary sql.NullString      `db:"full_work_summary" json:"full_work_summary"`
 	OutsideGit      sql.NullString      `db:"outside_git" json:"outside_git"`
 	InvoiceID       sql.NullString      `db:"invoice_id" json:"invoice_id"`
+	IncludesGst     bool                `db:"includes_gst" json:"includes_gst"`
 }
 
 type VInvoice struct {

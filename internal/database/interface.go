@@ -38,9 +38,9 @@ type DB interface {
 	GetClientsWithDirectories(ctx context.Context) ([]*models.Client, error)
 	UpdateClient(ctx context.Context, clientID string, billing *ClientUpdateDetails) (*models.Client, error)
 
-	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error)
-	CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error)
-	CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate decimal.Decimal) (*models.WorkSession, error)
+	CreateWorkSession(ctx context.Context, clientID string, description *string, hourlyRate decimal.Decimal, includesGst bool) (*models.WorkSession, error)
+	CreateWorkSessionWithStartTime(ctx context.Context, clientID string, startTime time.Time, description *string, hourlyRate decimal.Decimal, includesGst bool) (*models.WorkSession, error)
+	CreateWorkSessionWithTimes(ctx context.Context, clientID string, startTime, endTime time.Time, description *string, hourlyRate decimal.Decimal, includesGst bool) (*models.WorkSession, error)
 	GetActiveSession(ctx context.Context) (*models.WorkSession, error)
 	StopWorkSession(ctx context.Context, sessionID string) (*models.WorkSession, error)
 	ListRecentSessions(ctx context.Context, limit int32) ([]*models.WorkSession, error)

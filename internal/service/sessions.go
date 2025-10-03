@@ -45,7 +45,7 @@ func (s *TimesheetService) DisplaySession(session *models.WorkSession, verbose b
 
 	billableStr := ""
 	if billable.GreaterThan(decimal.Zero) {
-		billableStr = fmt.Sprintf(" | %s", s.FormatBillableAmount(billable))
+		billableStr = fmt.Sprintf(" | %s", s.FormatSessionBillableAmount(session))
 	}
 
 	// Main session info

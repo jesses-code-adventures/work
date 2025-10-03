@@ -93,8 +93,8 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		clientSessionList := clientSessions[clientName]
 		clientExpenseList := clientExpenses[clientName]
 
-		// Calculate billable amounts with retainer consideration
-		subtotal, retainerAmount := s.calculateClientTotalWithRetainer(clientSessionList, client, period)
+		// Calculate billable amounts with retainer consideration, separating GST-inclusive and GST-exclusive sessions
+		subtotal, gstFromInclusiveSessions, retainerAmount := s.calculateClientTotalWithGSTHandling(clientSessionList, client, period)
 
 		// Add expenses to subtotal
 		expenseTotal := s.calculateExpenseTotal(clientExpenseList)
@@ -112,8 +112,10 @@ func (s *TimesheetService) GenerateInvoices(ctx context.Context, period, date, c
 		var gstAmount decimal.Decimal
 		var total decimal.Decimal
 		if s.cfg.GSTRegistered {
-			gstAmount = totalBillable.Mul(decimal.NewFromFloat(0.1)) // 10% GST
-			total = totalBillable.Add(gstAmount)
+			// Add GST from exclusive sessions (10% of subtotal) and GST already included in inclusive sessions
+			gstFromExclusiveSessions := totalBillable.Mul(decimal.NewFromFloat(0.1))
+			gstAmount = gstFromExclusiveSessions.Add(gstFromInclusiveSessions)
+			total = totalBillable.Add(gstFromExclusiveSessions).Add(gstFromInclusiveSessions)
 		} else {
 			total = totalBillable
 		}
@@ -668,6 +670,63 @@ func (s *TimesheetService) calculateClientTotalWithRetainer(sessions []*models.W
 	}
 
 	return billableTotal, retainerAmount
+}
+
+// calculateClientTotalWithGSTHandling calculates the billable total, GST from inclusive sessions, and retainer amount for a client
+func (s *TimesheetService) calculateClientTotalWithGSTHandling(sessions []*models.WorkSession, client *models.Client, period string) (decimal.Decimal, decimal.Decimal, decimal.Decimal) {
+	// Check if client has retainer and if it applies to this period
+	var retainerAmount decimal.Decimal
+	if client.RetainerAmount != nil && client.RetainerHours != nil && client.RetainerBasis != nil &&
+		client.RetainerAmount.GreaterThan(decimal.Zero) && *client.RetainerHours > 0.0 && *client.RetainerBasis == period {
+		retainerAmount = *client.RetainerAmount
+	}
+
+	// Calculate total hours and billable amount with retainer consideration
+	var totalHours decimal.Decimal
+	var billableTotal decimal.Decimal
+	var gstFromInclusiveSessions decimal.Decimal
+
+	for _, session := range sessions {
+		sessionHours := decimal.NewFromFloat(s.CalculateDuration(session).Hours())
+		totalHours = sessionHours.Add(totalHours)
+
+		// Apply retainer hours at $0 rate first
+		if retainerAmount.GreaterThan(decimal.Zero) && client.RetainerHours != nil && totalHours.LessThanOrEqual(decimal.NewFromFloat(*client.RetainerHours)) {
+			// Session hours are covered by retainer, bill at $0
+			continue
+		} else if retainerAmount.GreaterThan(decimal.Zero) && client.RetainerHours != nil && (totalHours.Sub(sessionHours)).LessThan(decimal.NewFromFloat(*client.RetainerHours)) {
+			// Partial session covered by retainer
+			retainerCoveredHours := decimal.NewFromFloat(*client.RetainerHours).Sub((totalHours.Sub(sessionHours)))
+			billableHours := sessionHours.Sub(retainerCoveredHours)
+
+			if session.HourlyRate != nil && session.HourlyRate.GreaterThan(decimal.Zero) {
+				sessionAmount := billableHours.Mul(*session.HourlyRate)
+				if session.IncludesGst && s.cfg.GSTRegistered {
+					// Extract GST-exclusive amount and GST amount
+					gstExclusiveAmount := sessionAmount.Div(decimal.NewFromFloat(1.1))
+					gstAmount := sessionAmount.Sub(gstExclusiveAmount)
+					billableTotal = billableTotal.Add(gstExclusiveAmount)
+					gstFromInclusiveSessions = gstFromInclusiveSessions.Add(gstAmount)
+				} else {
+					billableTotal = billableTotal.Add(sessionAmount)
+				}
+			}
+		} else {
+			// Session fully billable
+			sessionAmount := s.CalculateBillableAmount(session)
+			if session.IncludesGst && s.cfg.GSTRegistered {
+				// Extract GST-exclusive amount and GST amount
+				gstExclusiveAmount := sessionAmount.Div(decimal.NewFromFloat(1.1))
+				gstAmount := sessionAmount.Sub(gstExclusiveAmount)
+				billableTotal = billableTotal.Add(gstExclusiveAmount)
+				gstFromInclusiveSessions = gstFromInclusiveSessions.Add(gstAmount)
+			} else {
+				billableTotal = billableTotal.Add(sessionAmount)
+			}
+		}
+	}
+
+	return billableTotal, gstFromInclusiveSessions, retainerAmount
 }
 
 func (s *TimesheetService) formatClientName(name string) string {

@@ -40,6 +40,7 @@ type WorkSession struct {
 	FullWorkSummary *string          `json:"full_work_summary,omitempty" db:"full_work_summary"`
 	OutsideGit      *string          `json:"outside_git,omitempty" db:"outside_git"`
 	InvoiceID       *string          `json:"invoice_id,omitempty" db:"invoice_id"`
+	IncludesGst     bool             `json:"includes_gst" db:"includes_gst"`
 	CreatedAt       time.Time        `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time        `json:"updated_at" db:"updated_at"`
 
